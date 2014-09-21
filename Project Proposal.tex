@@ -1,0 +1,83 @@
+\documentclass[english]{article} 
+\setlength  {\textheight}    {9.2in}
+\setlength  {\textwidth}     {6.8in}
+\setlength  {\oddsidemargin} {0.1in}
+\setlength  {\evensidemargin}{0.1in}
+\setlength  {\voffset}{-0.6in}
+\parindent 0pt 
+\parskip 1ex 
+\setlength{\unitlength}{1in} 
+\usepackage{amsmath, amsfonts, amssymb, amscd} 
+\usepackage[usenames,dvipsnames]{color} 
+\usepackage{longtable}
+\usepackage{verbatim}
+\usepackage{listings}
+\usepackage{pdfpages}
+\usepackage{amsthm,amssymb}
+\usepackage[
+pdfauthor={Zouhair Mahboubi},
+pdfsubject={subject},
+pdfpagemode={UseOutlines},
+bookmarks,
+bookmarksopen,
+pdfstartview={FitH},
+colorlinks,
+linkcolor={blue},
+citecolor={blue},
+urlcolor={red},
+]{hyperref}
+\usepackage{fancyhdr} 
+\pagestyle{fancy}
+\fancyhf{}
+\renewcommand{\headrulewidth}{0.5pt}
+\fancyfoot[c]{\footnotesize{Project Proposal}}
+\fancyfoot[l]{\footnotesize{}}
+\fancyfoot[r]{\footnotesize\sffamily\thepage}
+\fancypagestyle{plain}{
+\renewcommand{\headrulewidth}{0pt}
+}
+\title{AA228 Project Proposal\\}
+\author{Zouhair Mahboubi} 
+\begin{document} 
+\maketitle 
+%\tableofcontents 
+% \listoffigures 
+\newpage 
+\lstset{basicstyle=\footnotesize, breaklines=true, language=Octave}
+
+\section{Motivation}
+We motivate this project by the fact that Unmanned Aerial System operations are often conducted by operators with reduced situational awareness, in both cases when the system is under autonomous or remote control.
+
+We assume that we have a system that is capable of operating in 3 different modes:
+\begin{enumerate}
+\item Fully autonomous operations where a complex flight plan and mission are being carried out, new and untested control laws are being , or an new part of the envelope is being explored.
+\item Full or partial autonomous operations with simplified and proven control laws that attempt to bring the vehicle to land at its current position.
+\item Remote controlled operations with an experienced (safety) pilot in command.
+\end{enumerate}
+
+Ideally, one would like to operate in mode 1 as much as possible in order to accomplish the mission (whether it's following the complex plan or testing the new control laws), but that might be at the risk of going outside of prescribed airspace restrictions or damaging the vehicle (hence the presence of a safety pilot who is able to take over when things do not go as expected).
+
+The idea is to provide the remote operator with a way to make a decision on which mode of operation / level of autonomy to be used.\\
+
+We think that the decision of when to switch between the modes can be done in an optimal manner by formulating the problem as a POMDP. Namely, we informally identify the following States, Actions, Observations and Rewards (the set of conditional probabilities for observations and transitions are TBD) for the process:
+
+\begin{itemize}
+\item States: Rigid body states (position, attitude, etc.), performance of algorithm/pilot in control \footnote{Per example, an experienced pilot might perform poorly if vehicle is further or not in line of sight, or the autonomous system might be having difficulty due to a malfunction in one of the sensors}, health state of the vehicle.
+
+\item Actions: Choice of mode of operation
+\item Observations: measurements from inertial sensors (position, attitude, etc.), error in desired vs. achieved states
+\item Rewards: positive reward for carrying-out the flight plan (i.e. being in level 1), neutral for being in level 2 or 3, negative rewards for airspace excursions or loss of vehicle (ground impact per example)
+\end{itemize}
+
+An initial simplified problem can be 2-dimensional (x-coordinate for position and z-coordinate for altitude) with point mass dynamics for the vehicle. The pilot/controller command velocities $v_x, v_z$ in order to position the vehicle. The vehicle is supposed to remain within a given box and not to exceed certain velocities. We can make the following assumptions about the modes of operation:
+\begin{itemize}
+\item When the pilot is in control (mode 3), he drives the vehicle back to his position (0,0), but the accuracy of his commands is dependent on the distance of the vehicle from him (to the point of being random at the opposite edge of the grid).
+\item When the higher level of autonomy is in control (mode 1), the vehicle attempts to fly along the edges of the box at maximum speed without going outside of the box. We can simulate failures in the controller or vehicle that manifest as the achieved velocity having higher random bias relative to the commanded velocities.
+\item Finally, when in the lower level of autonomy is in control (mode 2), it commands $v_x=0$  and $v_z=-1$ in an attempt to bring the vehicle back to the ground regardless of its x position
+\end{itemize}
+
+
+\section{"Future Work"}
+With a sight on how this can be expanded beyond just a toy problem, some of the future work can be to account for 6DOF dynamics. The observations can be extended to include more details about the health of the vehicle (such as GPS PDOP, propulsion energy state, etc.), additional modes of operation can be included. The choice of mode of operation can be made non-deterministic (i.e. the system suggests a mode, but the operator might ignore it)
+
+\end{document}
