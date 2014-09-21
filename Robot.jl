@@ -1,8 +1,30 @@
-module Robot
+#module Robot
 
-export vec2, action, robot, move
+#export vec2, action, robot, move, simulate, z
 
-using Distributions
+z = 2
+# macro quickuse(mod)
+#   if isdefined(current_module(),:LastMain) && isdefined(LastMain,:$mod)
+#     ex = :(using LastMain.$mod)
+#   else
+#     ex = :(using $mod)
+#   end
+# end
+# @quickuse Distributions
+# @quickuse PyPlot
+
+if isdefined(current_module(),:LastMain) && isdefined(LastMain,:PyPlot)
+  using LastMain.PyPlot
+else
+  using PyPlot
+end
+
+if isdefined(current_module(),:LastMain) && isdefined(LastMain,:Distributions)
+  using LastMain.Distributions
+else
+  using Distributions
+end
+
 import Base.isequal
 import Base.print
 import Base.show
@@ -50,7 +72,7 @@ end
 print(io::IO, x::vec2) = print(io, string(x))
 show(io::IO, x::vec2) = print(io, x)
 
-function Base.isequal(v1::vec2, v2::vec2)
+function ==(v1::vec2, v2::vec2)
     v1.x == v2.x && v1.z == v2.z
 end
 
@@ -66,8 +88,15 @@ type robot
   health::healthType    #robot health.
   attention::attLvl #operator's attention {0,1,2}
   tasks::Vector{vec2} # list of tasks
+  #Some parameters
+  Score::Float64
+  crashed::Bool
+  γ::Vector{Float64} #Bernoulli parametrizatin of accuracy {robot, human}
   #this just keeps track of the history!
   path::Vector{vec2}
+
+  robot(p,h,a,t,γ) = new(p,h,a,t,0., false, γ, [vec2(p.x, p.z)])
+  robot(p,h,a,t) = robot(p,h,a,t,[0.2, 0.1])
 end
 function string(r::robot)
     return string("pos = ", string(r.position))
@@ -83,28 +112,56 @@ type action
     attCmd::attAction
 end
 
+function clip(x::Number, min::Number, max::Number)
+  if(x < min)
+    return min
+  elseif(x > max)
+    return max
+  else
+    return x
+  end
+end
+
 #################################################
 function move(r::robot, a::action)
 #################################################
-    #Move based on 'stochastic' process
-    γ = a.issuer == auto ? 0.1 : 0.2
-    d = Bernoulli(γ)
-    α = rand(d); β = rand(d)
-    #If we are not healthy, fall towards the ground!
-    w_z = r.health == healthy ? 0. : (a.issuer == auto ? -2. : -1.)
-    r.position.x += a.velCmd.x * (1-α)
-    r.position.z += a.velCmd.z * (1-β) + w_z
-    r.position.z = max(r.position.z , 0) #don't go below the ground!
+  #Move based on 'stochastic' process
+  if (! r.crashed  )
+      γ = a.issuer == auto ? r.γ[1] : r.γ[2]
+      d = Bernoulli(γ)
+      α = rand(d); β = rand(d)
+      #If we are not healthy, fall towards the ground!
+      w_z = r.health == healthy ? 0. : (a.issuer == auto ? -2. : -1.)
+      r.position.x += clip(a.velCmd.x,-1.,1.) * (1-α)
+      r.position.z += clip(a.velCmd.z,-1.,1.) * (1-β) + w_z
+      if(r.position.z <= 0 && r.position.x != 0)
+        r.crashed = true
+        r.Score -= 1e3
+      else
+        r.Score -= (abs(a.velCmd.x) + abs(a.velCmd.z))
+      end
+      r.position.z = max(r.position.z, 0)
+      push!(r.path, vec2(r.position.x, r.position.z))
+  end
 
+  popTask = length(r.tasks) > 0 && r.tasks[1] == r.position
+  if(popTask)
+    r.tasks = r.tasks[2:end]
+    r.Score += 100
+  end
 
-    popTask = length(r.tasks) > 0 && r.tasks[1] == r.position
-    if(popTask)
-        r.tasks = r.tasks[2:end]
+  return r
+end
+
+#################################################
+function simulate(r::robot, controller, N=100)
+#################################################
+  while length(r.tasks) > 0 && length(r.path) < N && !r.crashed
+    move(r,controller(r))
+    if(rand() > 0.99)
+        r.health = notHealthy
     end
-
-    push!(r.path, vec2(r.position.x, r.position.z))
-    return r
 end
 
-
 end
+#end
