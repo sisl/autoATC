@@ -2,7 +2,6 @@
 
 #export vec2, action, robot, move, simulate, z
 
-z = 2
 # macro quickuse(mod)
 #   if isdefined(current_module(),:LastMain) && isdefined(LastMain,:$mod)
 #     ex = :(using LastMain.$mod)
@@ -24,6 +23,8 @@ if isdefined(current_module(),:LastMain) && isdefined(LastMain,:Distributions)
 else
   using Distributions
 end
+
+
 
 import Base.isequal
 import Base.print
@@ -154,12 +155,24 @@ function move(r::robot, a::action)
 end
 
 #################################################
-function simulate(r::robot, controller, N=100)
+function simulate(r::robot, policy, randFailure = false, N=100)
 #################################################
-  while length(r.tasks) > 0 && length(r.path) < N && !r.crashed
-    move(r,controller(r))
-    if(rand() > 0.99)
+  while length(r.path) < N && !r.crashed
+    #Move according to policy
+    move(r,policy(r))
+
+    #Put some spice in life
+    if(randFailure)
+      if (rand() > 0.99)
         r.health = notHealthy
+      end
+    elseif(r.position.z > 6)
+        r.health = notHealthy
+    end
+
+    #No more tasks and we are back home!
+    if((length(r.tasks) == 0 || r.health == notHealthy) && r.position == vec2(0,0))
+      break
     end
 end
 
