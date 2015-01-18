@@ -272,7 +272,11 @@ function transition(ac::airplane)
       ac.navNoise = pos(ned...)
     end
   else
-    sn = randomChoice(s, false, :∅) #Fixme! Use actual atc command!
+    a = :∅
+    if s == :T
+      a = :R
+    end
+    sn = randomChoice(s, a != :∅, a) #Fixme! Use actual atc command!
 
     d = "S"
     #Special handling of the departure state
