@@ -24,6 +24,11 @@ else
   using Distributions
 end
 
+if isdefined(current_module(),:LastMain) && isdefined(LastMain,:BayesNets)
+  using LastMain.BayesNets
+else
+  using BayesNets
+end
 
 
 import Base.isequal
