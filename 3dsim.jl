@@ -188,9 +188,11 @@ function destination(a::airplane)
   return posNE[a.navDest] + a.navNoise
 end
 
+
+taxiSpeed = 8
 function move(ac::airplane, dt)
   if ac.navDest[1] == :T
-    ac.airspeed = 5
+    ac.airspeed = taxiSpeed
   elseif ac.navDest == (:R, "E")
     ac.airspeed = min(ac.airspeed + 1, ac.VS1)
   end
@@ -227,7 +229,7 @@ function aviate(ac::airplane, altitude_desired, heading_desired)
 
 
     #on the groun, just point in the heading we want directly!
-    if(ac.airspeed < 5)
+    if(ac.airspeed <= taxiSpeed)
       ac.roll = 0
       ac.psi = heading_desired
     end
