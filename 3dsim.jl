@@ -171,7 +171,7 @@ type airplane
 
     new(airspeed, p0, psi, 0, 0,
         airspeed, pos(0,0,0),
-        navDest, :∅, [p0])
+        navDest, :∅, [deepcopy(p0)])
 
   end
   airplane(airspeed) = airplane(airspeed, :R)
