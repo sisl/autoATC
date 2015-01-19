@@ -12,7 +12,7 @@ end
 #############################################
 #Parameters
 #############################################
-α = 0.95; #Probability of following ATC command
+α = 1.0; #Probability of following ATC command
 β = 0.01; #Fraction of atc cost relative to collision cost
 noaction = (0, :∅)
 
@@ -350,25 +350,43 @@ function Transition(s::Array{Symbol,1}, a::typeof(noaction), snext::Array{Symbol
     return p;
 end
 
+
+
+#############################################
+#Policy function
+#############################################
+function PiStarFun(s0::Array{Symbol, 1})
+    s_i = s2i[s0];
+    return validActs[s_i][Pistar[s_i]]
+end
+
+function PiStarFunSlow(s0::Array{Symbol, 1})
+    s_i = s2i[s0];
+    return validActions(s0)[Pistar[s_i]]
+end
+
 #############################################
 #Defining states
 #############################################
-
-
-if(false)
 
 @printf("Defining states \n"); tic()
 S = Vector{Symbol}[[a,b,c,d] for a in allstates, b in allstates, c in allstates, d in allstates]; S = S[:];
 NS = length(S)
 s2i = Dict(S,[1:NS])
 
-toc(); @printf("Defining permutations/actions \n"); tic();
+toc();
+
+
+if(false)
+
+@printf("Defining permutations/actions \n"); tic();
 NextPerms = typeof(getNextPerms(S[1]))[getNextPerms(s) for s in S]
 validActs = typeof(validActions(S[1]))[validActions(s) for s in S]
 numValidActs = Int8[length(validActs[i]) for i in 1:NS]
+toc();
 
 
-toc(); @printf("Allocating memory for transitions/Rewards \n"); tic();
+@printf("Allocating memory for transitions/Rewards \n"); tic();
 tsaEntry = typeof(Float32[])[]
 rsaEntry = Float32[];
 TSA = Array(typeof(tsaEntry), NS)
@@ -516,14 +534,6 @@ function gaussSeidelValueIteration(numIterations::Integer, Uarray::Array{Float32
 
 end
 
-
-#############################################
-#Policy function
-#############################################
-function PiStarFun(s0::Array{Symbol, 1})
-    s_i = s2i[s0];
-    return validActs[s_i][Pistar[s_i]]
-end
 
 #############################################
 #Solving
