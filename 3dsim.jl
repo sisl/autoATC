@@ -363,7 +363,7 @@ function runAutoATC(acList::Vector{airplane}, runATC::Symbol)
     for i in 1:4
       ac = acList[i]
       if(ac.navDest[1] == :T && ac.navDest[2] == "E")
-        atc = (i, :R)
+        act = (i, :R)
         break
       end
     end
@@ -439,7 +439,7 @@ function simulate!(acList::Vector{airplane}, Tend, stopEarly = false, runATC::Sy
       move!(ac, simdt, savepath)
 
       if readyForCommand
-         print(" ");
+         #print(" ");
 #           @printf("t = %.2f %s; %s -> %s\n",
 #                   2.2, "a","b","c")#ac.posNED, ac.navDest, ac.atcCommand)
       end
