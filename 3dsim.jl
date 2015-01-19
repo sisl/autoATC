@@ -349,9 +349,25 @@ end
 
 
 #################################################
-function runAutoATC(acList::Vector{airplane})
+function runAutoATC(acList::Vector{airplane}, runATC::Symbol)
 #################################################
-  act = PiStarFunSlow([ac.navDest[1] for ac in acList])
+  act = noaction
+  if runATC == :MDP
+    act = PiStarFunSlow([ac.navDest[1] for ac in acList])
+  elseif runATC == :Greedy
+    s = [ac.navDest[1] for ac in acList]
+    s_i = s2i[s]
+    act_i = PiSimple[s_i]
+    act = validActions(s)[act_i]
+  else
+    for i in 1:4
+      ac = acList[i]
+      if(ac.navDest[1] == :T && ac.navDest[2] == "E")
+        atc = (i, :R)
+        break
+      end
+    end
+  end
   return act
 end
 
@@ -387,7 +403,7 @@ function getDmin(acList::Vector{airplane}, idx)
 end
 
 #################################################
-function simulate!(acList::Vector{airplane}, Tend, stopEarly = false, runATC = false, savepath = true)
+function simulate!(acList::Vector{airplane}, Tend, stopEarly = false, runATC::Symbol = :MDP, savepath = true)
 #################################################
 #Running simulation,
 
@@ -410,21 +426,10 @@ function simulate!(acList::Vector{airplane}, Tend, stopEarly = false, runATC = f
     #If any aircraft is about to transition,
     #see if there's an ATC command that should be issued!
     if(readyForCommand)
-       if(runATC)
-         act = runAutoATC(acList)
-         #If we have an action to issue, pass it along
-         if act != noaction
-            acList[act[1]].atcCommand = act[2]
-         end
-       else
-         #if no ATC command, push things to the runway
-         #FIXME: do something better here
-         for ac in acList
-           if ac.navDest[1] == :T && ac.navDest[2] == "E"
-             ac.atcCommand = :R
-             break;
-           end
-         end
+      act = runAutoATC(acList, runATC)
+      #If we have an action to issue, pass it along
+      if act != noaction
+        acList[act[1]].atcCommand = act[2]
       end
     end
 
@@ -434,7 +439,7 @@ function simulate!(acList::Vector{airplane}, Tend, stopEarly = false, runATC = f
       move!(ac, simdt, savepath)
 
       if readyForCommand
-#         @printf("%i", 1);
+         print(" ");
 #           @printf("t = %.2f %s; %s -> %s\n",
 #                   2.2, "a","b","c")#ac.posNED, ac.navDest, ac.atcCommand)
       end
