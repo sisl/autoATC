@@ -7,7 +7,7 @@ else
 end
 
 
-
+rng = MersenneTwister()
 
 #############################################
 #Parameters
@@ -16,6 +16,8 @@ end
 β = 0.01; #Fraction of atc cost relative to collision cost
 noaction = (0, :∅)
 
+α_range = [0., 0.05, 0.25, 0.5, 0.75, 0.85, 0.95, 1.]
+β_range = [0., 0.01, 0.1, 0.25, 0.5, 1.]
 #############################################
 #Set up states
 NextStates = (Symbol => Array{Symbol, 1})[]
@@ -113,7 +115,7 @@ end
 #Probability of following ATC command
 #############################################
 function weightedChoice(weights)
-    rnd = rand() * sum(weights)
+    rnd = rand(rng) * sum(weights)
     for (i, w) in enumerate(weights)
         rnd -= w
         if rnd < 0
@@ -377,8 +379,6 @@ s2i = Dict(S,[1:NS])
 toc();
 
 
-if(false)
-
 @printf("Defining permutations/actions \n"); tic();
 NextPerms = typeof(getNextPerms(S[1]))[getNextPerms(s) for s in S]
 validActs = typeof(validActions(S[1]))[validActions(s) for s in S]
@@ -386,12 +386,15 @@ numValidActs = Int8[length(validActs[i]) for i in 1:NS]
 toc();
 
 
+if(false)
+
+
 @printf("Allocating memory for transitions/Rewards \n"); tic();
 tsaEntry = typeof(Float32[])[]
 rsaEntry = Float32[];
-TSA = Array(typeof(tsaEntry), NS)
-RSA = Array(typeof(rsaEntry), NS)
-Jlist = Array(typeof(Int64[]), NS)
+TSA = zeros(typeof(tsaEntry), NS)
+RSA = zeros(typeof(rsaEntry), NS)
+Jlist = zeros(typeof(Int64[]), NS)
 @time for from_i in 1:NS
   if(from_i % int(NS/4) == 0)
     toc(); @printf("%i/%i ... \n",from_i, NS); tic();
@@ -400,14 +403,14 @@ Jlist = Array(typeof(Int64[]), NS)
   from = S[from_i]
   nn =  length(validActs[from_i])
 
-  RSA[from_i] = Array(Float32, nn)
-  TSA[from_i] = Array(typeof(Float32[]), nn)
+  RSA[from_i] = zeros(Float32, nn)
+  TSA[from_i] = zeros(typeof(Float32[]), nn)
 
   from_i_nextPerms = NextPerms[from_i]
   Jlist[from_i] = Int64[s2i[to] for to in from_i_nextPerms]
 
   for (a_i, a) in enumerate(validActs[from_i])
-      TSA[from_i][a_i] = Array(Float32, length(from_i_nextPerms))
+      TSA[from_i][a_i] = zeros(Float32, length(from_i_nextPerms))
   end
 
 end
@@ -499,7 +502,7 @@ end
 #Gauss Seidel Value Iteration
 #############################################
 function gaussSeidelValueIteration(numIterations::Integer, Uarray::Array{Float32,1};  γ = 0.95f0)
-    Piarray = Array(Int64, NS)
+    Piarray = zeros(Int64, NS)
 
     function Q(s0_i::Int32, a_i::Int8)
         @inbounds return RSA[s0_i][a_i]::Float32 + γ * sparsedot(Uarray, TSA[s0_i][a_i], s0_i::Int32)::Float32
@@ -542,8 +545,6 @@ if !isdefined(current_module(),:solveAll)
   solveAll = false
 end
 
-α_range = [0., 0.05, 0.25, 0.5, 0.75, 0.85, 0.95, 1.]
-β_range = [0., 0.01, 0.1, 0.25, 0.5, 1.]
 
 Ustar = zeros(Float32, NS);
 

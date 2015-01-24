@@ -2,7 +2,7 @@
 # import Base.show
 # import Base.string
 
-function unwrap(a)
+function unwrap(a::Float64)
     if (a > pi)
         return mod(a + pi, 2*pi) - pi
     elseif (a < -pi)
@@ -12,7 +12,7 @@ function unwrap(a)
     end
 end
 
-function clip(r, min, max)
+function clip(r::Float64, min::Float64, max::Float64)
   if r < min
     return min
   elseif r > max
@@ -24,17 +24,17 @@ end
 
 
 #Parameters
-simdt=0.25
-transThresh = 150
-maxNoise = 200 #FIXME: Make this configurable per airplane?
-taxiSpeed = 8 #default taxi speed
+const simdt=0.25
+const transThresh = 50.
+const maxNoise = 150. #FIXME: Make this configurable per airplane?
+const taxiSpeed = 5. #default taxi speed
 
 #################################################
 type pos
 #################################################
-  n::Float32
-  e::Float32
-  d::Float32
+  n::Float64
+  e::Float64
+  d::Float64
 end
 
 function bearing(p0::pos, p1::pos)
@@ -44,11 +44,16 @@ function bearing(p0::pos, p1::pos)
 end
 
 
-function distance(p0::pos, p1::pos)
+function distance2(p0::pos, p1::pos)
     dN = p0.n - p1.n;
     dE = p0.e - p1.e;
-    return sqrt(dN*dN + dE*dE)
+    return (dN*dN + dE*dE)
 end
+
+function distance(p0::pos, p1::pos)
+    return sqrt(distance2(p0,p1))
+end
+
 
 function project(p0::pos, distance, bearing)
   dN =  distance * cos(bearing)
@@ -150,12 +155,12 @@ end
 type airplane
 #################################################
   #State:
-  airspeed::Float32
+  airspeed::Float64
   posNED::pos
 
-  psi::Float32
-  roll::Float32
-  gamma::Float32
+  psi::Float64
+  roll::Float64
+  gamma::Float64
 
   #Keep track of whether we are ready to transition
   #And ready for an ATC command
@@ -163,12 +168,13 @@ type airplane
   readyForATC::Bool
 
   #VS1 stores the initialization speed of the A/C
-  VS1::Float32
+  VS1::Float64
   #Noise in the navigation
   navNoise::pos
 
   #Destination we're heading towards
   navDest::(Symbol, String)
+  destNED::pos
   #Command if we've received any?
   atcCommand::Symbol
 
@@ -183,10 +189,12 @@ type airplane
     p0 = deepcopy(posNE[navOrig])
     p1 = deepcopy(posNE[navDest])
     psi = bearing(p0, p1)
+    destNED = p1
 
     new(airspeed, p0, psi, 0, 0, false, false,
         airspeed, pos(0,0,0),
-        navDest, :∅, [deepcopy(p0)])
+        navDest, destNED,
+        :∅, [deepcopy(p0)])
 
   end
   airplane(airspeed) = airplane(airspeed, :R)
@@ -196,13 +204,13 @@ end
 #Find out where this airplane is headed
 #(accounting for noise)
 function destination(a::airplane)
-  return posNE[a.navDest] + a.navNoise
+  return a.destNED #posNE[a.navDest] + a.navNoise
 end
 
 
 #"Rigid" body dynamics of 3DOF sim
 #################################################
-function move!(ac::airplane, dt, savepath = true)
+function move!(ac::airplane, dt::Float64, savepath::Bool = true)
 #################################################
   #Slow down if we are taxiing
   if ac.navDest[1] == :T
@@ -233,20 +241,24 @@ function move!(ac::airplane, dt, savepath = true)
 end
 
 #################################################
-function aviate!(ac::airplane, altitude_desired, heading_desired)
+function aviate!(ac::airplane, altitude_desired::Float64, heading_desired::Float64)
 #################################################
   #Climb towards the desired altitude
-  kp =  100 * pi/180
-  ac.gamma = deg2rad(clip( kp * (altitude_desired - -ac.posNED.d),
-                          -8, 8))
+  altitude = -ac.posNED.d
+
+  kp =  10. /100
+  if(altitude_desired < 1 && altitude < 2)
+    kp *= 10
+  end
+  ac.gamma = deg2rad(clip( kp * (altitude_desired - altitude),
+                          -5., 5.))
 
   #Roll controller
   heading_desired = unwrap(heading_desired)
-  heading_error_deg = rad2deg(unwrap(heading_desired - ac.psi)) +
-    randn()*4;
+  heading_error_deg = rad2deg(unwrap(heading_desired - ac.psi)) + randn(rng)*4;
 
-  kp = clip(randn() + 1, 0.5, 1.5) * 2
-  ac.roll = deg2rad( clip( heading_error_deg * kp, -45, 45))
+  kp = 3.0 #clip(randn(rng) + 1, 0.5, 1.5) * 2
+  ac.roll = deg2rad( clip( heading_error_deg * kp, -45., 45.))
 
 
   #Special case on the ground,
@@ -271,8 +283,9 @@ function navigate!(ac::airplane)
   ac.readyForATC = ac.readyToTransition && ac.navDest[2] == "E"
 
   #When tracking the runway, do more of a fake x-track like
-  if(ac.navDest[1] == :F1 && ac.navDest[2] == "E")
-    p1.e = p0.e + 100
+  if(ac.navDest[1] == :F1 && ac.navDest[2] == "E" && abs(p0.e) < 2000 )
+    frac = clip(abs(p0.e)/1500, 0., 1.)
+    p1 = pos(p1.n, (p0.e + 100) * (1-frac) + p1.e * frac , p1.d)
   end
 
   #After navigating, we should aviate
@@ -299,8 +312,8 @@ function transition(ac::airplane)
     if ac.navDest == (:F1, "E") || s == :R || s == :T
       ac.navNoise = pos(0,0,0)
     else
-      ned = [clip(x * maxNoise, -maxNoise, maxNoise) for x in randn(3)]
-      ned[3] = 0#clip(ned[3], -maxNoise / 10, maxNoise/10)
+      ned = [x * maxNoise for x in randn(rng,3)]
+      ned[3] = clip(ned[3], -20., 20.)
       ac.navNoise = pos(ned...)
     end
   else
@@ -320,7 +333,7 @@ function transition(ac::airplane)
       d = "E"
       ac.navNoise = project(pos(0,0,0),
                             30 * ac.airspeed + transThresh,
-                            rand()*(2*pi));
+                            rand(rng)*(2*pi));
     #Also for the go around state, we should head straight
     #to the go around state
     elseif (s == :GO)
@@ -329,6 +342,8 @@ function transition(ac::airplane)
     ac.navDest = (sn, d)
 
   end
+
+  ac.destNED = posNE[ac.navDest] + ac.navNoise
 
 
 end
@@ -363,8 +378,17 @@ function runAutoATC(acList::Vector{airplane}, runATC::Symbol)
     for i in 1:4
       ac = acList[i]
       if(ac.navDest[1] == :T && ac.navDest[2] == "E")
-        act = (i, :R)
-        break
+        allok = true
+        for j in [1:(i-1) , (i+1):4]
+          ac2 = acList[j]
+          if(ac2.navDest[1] == :R || (ac2.navDest[1] == :F1 && ac2.navDest[2] == "E"))
+            allok = false
+            break
+          end
+        end
+        if allok
+          act = (i, :R)
+        end
       end
     end
   end
@@ -373,33 +397,50 @@ end
 
 
 
-safeStates = [:T, :LDep , :RDep, :LArr, :RArr]
+function isSafe(s::Symbol, dest::ASCIIString)
+  #safeStates = Symbol[:T, :LDep , :RDep, :LArr, :RArr]
+  return s == :T || s == :LDep || s == :RDep || s == :LArr || s == :RArr || (s == :R && dest == "S")
+  #return (s in safeStates)
+#   for s2 in safeStates
+#     if s == s2
+#       return true
+#     end
+#   end
+#   return false
+end
 #################################################
-function getDmin(acList::Vector{airplane}, idx)
+function getDmin(acList::Vector{airplane})
 #################################################
 #Compute the minimum distance to a given aircraft
-  dmin = Inf
-  #This A/C
-  ac = acList[idx]
-  #All is good if we are in a safe state
-  if !(acList[idx].navDest[1] in safeStates)
-    #Otherwise iterate over the other aircraft
-    #And find the closest one
-    for i in [1:(idx-1) , (idx+1):length(acList)]
-      ac2 = acList[i]
-      if !(ac2.navDest[1] in safeStates)
-        dmin = min(dmin, distance(ac.posNED, ac2.posNED))
+  dmin = 1e10
+  idmin = Int64[0, 0]
+  for idx in 1:(length(acList)-1)
+    ac = acList[idx]
+    #All is good if we are in a safe state
+    if !isSafe(ac.navDest[1], ac.navDest[2])
+      #Otherwise iterate over the other aircraft
+      #And find the closest one
+      for i in (idx+1):length(acList)
+        ac2 = acList[i]
+        if !isSafe(ac2.navDest[1], ac2.navDest[2])
+          dmin_new = distance2(ac.posNED, ac2.posNED)
+          if(dmin_new < dmin)
+            dmin = dmin_new
+            idmin = Int64[idx, i]
+          end
+        end
       end
     end
   end
 
   #If we don't find anything, make it NaN for
   #making it straightfoward
-  dmin = dmin - 100
   if dmin == Inf
       dmin = NaN
+  else
+      dmin = sqrt(dmin) - 150.
   end
-  return dmin
+  return (dmin, idmin)
 end
 
 #################################################
@@ -410,18 +451,27 @@ function simulate!(acList::Vector{airplane}, Tend, stopEarly = false, runATC::Sy
   #Total time range
   trange =  0:simdt:Tend
 
-  #Commented out for now
-  #RNMAC = zeros(Float32,length(trange), length(acList))
+  smartATCtiming = (runATC == :MDP || runATC == :None)
+  if runATC == :MDP2
+    runATC = :MDP
+  end
+
 
   stopsim = false;
-
+  idmin = Int64[0,0]
   tidx = 0
   for t in trange
     tidx += 1
 
     #Find out if any of the aircraft in the pattern
     #is ready for a command
-    readyForCommand = any([ac.readyForATC for ac in acList])
+    readyForCommand = (tidx % 40 == 0)
+    if(smartATCtiming)
+      readyForCommand = any(Bool[ac.readyForATC for ac in acList]) && all(Bool[ac.atcCommand == :∅ for ac in acList])
+    else
+      readyForCommand = readyForCommand && all(Bool[ac.atcCommand == :∅ for ac in acList])
+    end
+
 
     #If any aircraft is about to transition,
     #see if there's an ATC command that should be issued!
@@ -433,35 +483,22 @@ function simulate!(acList::Vector{airplane}, Tend, stopEarly = false, runATC::Sy
       end
     end
 
-#     Fly pattern logic for all aircraft
+    #Fly pattern logic for all aircraft
     for ac in acList
       flyPattern!(ac)
       move!(ac, simdt, savepath)
-
-      if readyForCommand
-         #print(" ");
-#           @printf("t = %.2f %s; %s -> %s\n",
-#                   2.2, "a","b","c")#ac.posNED, ac.navDest, ac.atcCommand)
-      end
     end
 
 
     #Compute the distance to all other boogies
-    for acidx in 1:4
-      dmin = getDmin(acList, acidx)
-      if(stopEarly && dmin <= 0)
-        stopsim = true
-        break;
-      end
-      #RNMAC[tidx, acidx] = dmin;
-
-    end
-    if stopsim
-      break
+    (dmin, idmin_local) = getDmin(acList)
+    if(stopEarly && dmin <= 0)
+      idmin = idmin_local
+      break;
     end
   end
 
-  return (0, trange[tidx])
+  return (idmin, trange[tidx])
 end
 
 
