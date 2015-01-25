@@ -145,19 +145,17 @@ function probFromTo(from::Symbol, to::Symbol, receivedATC::Bool, atcDesired::Sym
             p = 1.
         #Not addressing this aircraft or invalid atc command
         elseif !receivedATC || !(atcDesired in allNext)
-#             #except for taxi (aircraft will not take-off unless told so)
-#             #All other states are equally likely
-#             if(from != :T)
-#               p = 1./ Nnext
-#             #i.e. from Taxi -> Taxi without ATC commands
-#             elseif (to == :T)
-#                 p = α
-#             #From Taxi -> other things..
-#             else
-#                 p = (1-α)/(Nnext-1)
-#             end
-
-            p = 1./ Nnext
+            #except for taxi (aircraft will not take-off unless told so)
+            #All other states are equally likely
+            if(from != :T)
+              p = 1./ Nnext
+            #i.e. from Taxi -> Taxi without ATC commands
+            elseif (to == :T)
+                p = α
+            #From Taxi -> other things..
+            else
+                p = (1-α)/(Nnext-1)
+            end
         #received ATC command, collaborate!
         else
           if to == atcDesired
@@ -307,7 +305,7 @@ function Reward(s::Vector{Symbol}, a::typeof(noaction))
     #Each collision costs 1000.
     #And each aircraft just sitting on the taxi also incurs cost
     collisionCost = -1000.
-    taxiCost = 0.
+    taxiCost = -10.
 
     #Actions have a cost
     if(a != noaction)
@@ -327,9 +325,8 @@ function validActions(ss)
 #############################################
   A = [noaction]; sizehint(A, 10);
   for (i, s) in enumerate(ss)
-    #Can't tell departing aircrafts
-    #or aircraft in taxi or runway what to do
-    if !(s in [:LDep, :RDep, :R, :T])
+    #Can't tell departing aircrafts what to do
+    if !(s in [:LDep, :RDep])
       snext = NextStates[s]
       if(length(snext) > 1)
         for sn in snext
@@ -570,7 +567,7 @@ if(solveAll)
       @printf("Running Gauss: \n");
       @time (Ustar, Pistar) = gaussSeidelValueIteration(50, Ustar);
 
-      filename = "/home/zouhair/autoATC/a_" * string(α) * "_b_" * string(β) * ".jld"
+      filename = "/home/zouhair/left-or-right/a_" * string(α) * "_b_" * string(β) * ".jld"
       @printf("Saving %s: ", filename)
       @time save(filename, "Pistar", Pistar, "Ustar", Ustar, "α", α, "β", β);
     end
