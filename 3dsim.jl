@@ -26,8 +26,11 @@ end
 #Parameters
 const simdt=0.25
 const transThresh = 50.
-const maxNoise = 150. #FIXME: Make this configurable per airplane?
+const maxNoise = 150. #FIXME: Make this configurable per airplane? ~500 ft
+const maxNoiseAlt = 20. #FIXME: Make this configurable per airplane? ~60 ft
+
 const taxiSpeed = 5. #default taxi speed
+
 
 #################################################
 type pos
@@ -312,8 +315,7 @@ function transition(ac::airplane)
     if ac.navDest == (:F1, "E") || s == :R || s == :T
       ac.navNoise = pos(0,0,0)
     else
-      ned = [x * maxNoise for x in randn(rng,3)]
-      ned[3] = clip(ned[3], -20., 20.)
+      ned = randn(rng,3) .* Float64[maxNoise, maxNoise, maxNoiseAlt]
       ac.navNoise = pos(ned...)
     end
   else
@@ -424,7 +426,7 @@ function getDmin(acList::Vector{airplane})
         ac2 = acList[i]
         if !isSafe(ac2.navDest[1], ac2.navDest[2])
           dmin_new = distance2(ac.posNED, ac2.posNED)
-          if(dmin_new < dmin)
+          if(abs(ac.posNED.d - ac2.posNED.d) < 30 && dmin_new < dmin)
             dmin = dmin_new
             idmin = Int64[idx, i]
           end
