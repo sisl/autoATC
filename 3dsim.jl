@@ -6,7 +6,7 @@ function unwrap(a::Float64)
     if (a > pi)
         return mod(a + pi, 2*pi) - pi
     elseif (a < -pi)
-        return -unwrap(-a)
+        return -(mod(-a + pi, 2*pi) - pi)  #aka -unwrap(-a)
     else
         return a;
     end
@@ -247,28 +247,30 @@ end
 function aviate!(ac::airplane, altitude_desired::Float64, heading_desired::Float64)
 #################################################
   #Climb towards the desired altitude
+  const r2d = 180./pi
   altitude = -ac.posNED.d
 
-  kp =  10. /100
-  if(altitude_desired < 1 && altitude < 2)
-    kp *= 10
+  kp_g =  10. /100.
+  if(altitude_desired < 1. && altitude < 2.)
+    kp_g *= 10.
   end
-  ac.gamma = deg2rad(clip( kp * (altitude_desired - altitude),
+  ac.gamma = deg2rad(clip( kp_g * (altitude_desired - altitude),
                           -5., 5.))
 
   #Roll controller
-  heading_desired = unwrap(heading_desired)
-  heading_error_deg = rad2deg(unwrap(heading_desired - ac.psi)) + randn(rng)*4;
 
-  kp = 3.0 #clip(randn(rng) + 1, 0.5, 1.5) * 2
-  ac.roll = deg2rad( clip( heading_error_deg * kp, -45., 45.))
+  #Profiling, putting each on its own line
+  heading_error_deg = unwrap(heading_desired - ac.psi)*r2d #+ randn(rng)*4.;
+
+  const kp_roll = 3.0 #clip(randn(rng) + 1, 0.5, 1.5) * 2
+  ac.roll = clip( heading_error_deg * kp_roll, -45., 45.)/r2d
 
 
   #Special case on the ground,
   #just point in the heading we want directly!
   if(ac.airspeed <= taxiSpeed)
-    ac.roll = 0
     ac.psi = heading_desired
+    ac.roll = 0.
   end
 end
 
@@ -461,19 +463,35 @@ function simulate!(acList::Vector{airplane}, Tend, stopEarly = false, runATC::Sy
 
   stopsim = false;
   idmin = Int64[0,0]
+  alertCount = 0
+
   tidx = 0
   for t in trange
     tidx += 1
 
     #Find out if any of the aircraft in the pattern
-    #is ready for a command
-    readyForCommand = (tidx % 40 == 0)
-    if(smartATCtiming)
-      readyForCommand = any(Bool[ac.readyForATC for ac in acList]) && all(Bool[ac.atcCommand == :∅ for ac in acList])
-    else
-      readyForCommand = readyForCommand && all(Bool[ac.atcCommand == :∅ for ac in acList])
+    #is ready for a command. This could be done more
+    #concisely but list comprehensions seem to slow
+    #things down!
+
+    #Find out if anyone is busy
+    noPendingCommand = true
+    for idx in 1:length(acList)
+      noPendingCommand = noPendingCommand && (acList[idx].atcCommand == :∅)
     end
 
+    readyForCommand = false
+    if(noPendingCommand) #Someone is busy, don't send a new command
+        if(smartATCtiming)
+          #Find out if any aircraft is ready for a command
+          for idx in 1:length(acList)
+            readyForCommand = readyForCommand || acList[idx].readyForATC
+          end
+        else
+          #Do it based on clock
+          readyForCommand = (tidx % 40 == 0)
+        end
+    end
 
     #If any aircraft is about to transition,
     #see if there's an ATC command that should be issued!
@@ -482,6 +500,7 @@ function simulate!(acList::Vector{airplane}, Tend, stopEarly = false, runATC::Sy
       #If we have an action to issue, pass it along
       if act != noaction
         acList[act[1]].atcCommand = act[2]
+        alertCount += 1
       end
     end
 
@@ -500,7 +519,7 @@ function simulate!(acList::Vector{airplane}, Tend, stopEarly = false, runATC::Sy
     end
   end
 
-  return (idmin, trange[tidx])
+  return (idmin, trange[tidx], alertCount)
 end
 
 
