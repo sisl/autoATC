@@ -200,6 +200,7 @@ function simulate(s, policy::Function; N=10, endEarly = false)
 end
 
 
+
 #############################################
 function plotSim(S, Actions, collisions, rewards; animation = false, Ncolprev = 0)
 #############################################
@@ -215,14 +216,14 @@ function plotSim(S, Actions, collisions, rewards; animation = false, Ncolprev = 
 
     for s in allstates
       (x, y) = xy[s]
-      PyPlot.text(x, y, s, fontsize=8, alpha=0.5)
+        PyPlot.text(x, y, s, fontsize=10, alpha=0.8, bbox={"facecolor" => "white", "alpha"=>0.2})
     end
 
-    colors = ["blue", "green", "black", "orange"]
+    colors = ["blue", "green", "black", "red"]
     for n in 1:length(S[1])
         x = [xy[s[n]][1] for s in S]+(n-1)*.1
-        y = [xy[s[n]][2] for s in S]
-        PyPlot.plot(x, y, linestyle="--", color=colors[n]);
+        y = [xy[s[n]][2] for s in S]+(n-1)*.05
+        PyPlot.plot(x, y, linestyle="--", linewidth = 2, color=colors[n]);
         if(animation)
           M = (n == Actions[end][1]) ? "D" : "o"
           PyPlot.plot(x[end], y[end], linestyle="", color=colors[n], marker=M);
@@ -260,17 +261,18 @@ function plotSim(S, Actions, collisions, rewards; animation = false, Ncolprev = 
                 msize = min(msize, 10)
             end
             if msize > 0
-                PyPlot.plot(x, y, marker="o", color="red", markersize = msize, alpha = 0.8);
+                PyPlot.plot(x, y, marker="o", color="red", markersize = msize, alpha = 0.9);
             end
       end
     end
 
     if animation
-      PyPlot.title("Total Collisions = " * string(collisions[end] + Ncolprev))
+      #PyPlot.title("Total Collisions = " * string(collisions[end] + Ncolprev))
     end
-    ax[:set_xlim]([-1, 1]*xrange);
+    ax[:set_xlim]([-.9, 1]*xrange);
     ax[:set_ylim]([-1, 1]*yrange);
-    PyPlot.grid("on")
+    ax[:set_yticklabels]([]); ax[:set_xticklabels]([])
+    #PyPlot.grid("on")
 
 
 
