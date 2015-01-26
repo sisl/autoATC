@@ -373,28 +373,23 @@ function runAutoATC(acList::Vector{airplane}, runATC::Symbol)
   act = noaction
   if runATC == :MDP
     act = PiStarFunSlow([ac.navDest[1] for ac in acList])
-  elseif runATC == :Greedy
-    s = [ac.navDest[1] for ac in acList]
-    s_i = s2i[s]
-    act_i = PiSimple[s_i]
-    act = validActions(s)[act_i]
-  else
-    for i in 1:4
-      ac = acList[i]
-      if(ac.navDest[1] == :T && ac.navDest[2] == "E")
-        allok = true
-        for j in [1:(i-1) , (i+1):4]
-          ac2 = acList[j]
-          if(ac2.navDest[1] == :R || (ac2.navDest[1] == :F1 && ac2.navDest[2] == "E"))
-            allok = false
-            break
-          end
-        end
-        if allok
-          act = (i, :R)
-        end
-      end
-    end
+#   else
+#     for i in 1:4
+#       ac = acList[i]
+#       if(ac.navDest[1] == :T && ac.navDest[2] == "E")
+#         allok = true
+#         for j in [1:(i-1) , (i+1):4]
+#           ac2 = acList[j]
+#           if(ac2.navDest[1] == :R || (ac2.navDest[1] == :F1 && ac2.navDest[2] == "E"))
+#             allok = false
+#             break
+#           end
+#         end
+#         if allok
+#           act = (i, :R)
+#         end
+#       end
+#     end
   end
   return act
 end
@@ -505,9 +500,9 @@ function simulate!(acList::Vector{airplane}, Tend, stopEarly = false, runATC::Sy
     end
 
     #Fly pattern logic for all aircraft
-    for ac in acList
-      flyPattern!(ac)
-      move!(ac, simdt, savepath)
+    for idx in 1:length(acList)
+      flyPattern!(acList[idx])
+      move!(acList[idx], simdt, savepath)
     end
 
 
@@ -517,9 +512,23 @@ function simulate!(acList::Vector{airplane}, Tend, stopEarly = false, runATC::Sy
       idmin = idmin_local
       break;
     end
+
+#     allInTaxi = true
+#     for idx in 1:length(acList)
+#       allInTaxi = allInTaxi && acList[idx].navDest[1] == :T && acList[idx].navDest[2] == "S"
+#     end
+#     if(allInTaxi)
+#         tidx = -1;
+#         break
+#     end
+
   end
 
-  return (idmin, trange[tidx], alertCount)
+  tmax = 1e6
+  if(tidx != -1)
+    tmax = trange[tidx]
+  end
+  return (idmin, tmax, alertCount)
 end
 
 
