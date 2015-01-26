@@ -460,6 +460,7 @@ function simulate!(acList::Vector{airplane}, Tend, stopEarly = false, runATC::Sy
   idmin = Int64[0,0]
   alertCount = 0
 
+  flightTime = 0.
   tidx = 0
   for t in trange
     tidx += 1
@@ -513,6 +514,15 @@ function simulate!(acList::Vector{airplane}, Tend, stopEarly = false, runATC::Sy
       break;
     end
 
+
+
+
+    for idx in 1:length(acList)
+      if acList[idx].navDest[1] != :T
+        flightTime += simdt
+      end
+    end
+
 #     allInTaxi = true
 #     for idx in 1:length(acList)
 #       allInTaxi = allInTaxi && acList[idx].navDest[1] == :T && acList[idx].navDest[2] == "S"
@@ -528,7 +538,7 @@ function simulate!(acList::Vector{airplane}, Tend, stopEarly = false, runATC::Sy
   if(tidx != -1)
     tmax = trange[tidx]
   end
-  return (idmin, tmax, alertCount)
+  return (idmin, tmax, alertCount, flightTime)
 end
 
 
