@@ -10,6 +10,8 @@ g_nI = 2
 #Number of nodes per instaces
 g_N = 5
 
+g_noaction = (0, :∅)
+
 
 function combos_with_replacement(list, k)
     n = length(list)
@@ -111,14 +113,30 @@ function QVeval(s, action, Qtdict, V::Vector{Float64}, β::Float64)
     qVsum += Qval * V[vIdx]
   end
 
-  #Don't forget that we summed in
-
-  return (qVsum) / (β + qx)
+  return (qVsum + r(s, action)) / (β + qx)
 end
 
 #TODO: Implement this properly for
 #autoATC
-function R(s, a)
+#Consider precomputing r ?
+function r(s::Vector{Int64}, a)
+  #rate in state 1 is the best
+  #unless two things are in the same state!
 
+  Ns = length(s)
+  Ns_u = length(unique(s))
 
+  R = 0.
+
+  if(Ns != Ns_u)
+    R = -10000.
+  elseif 1 in s
+    R = 100.
+  end
+
+  if(a != g_noaction)
+    R -= 100.
+  end
+
+  return R;
 end
