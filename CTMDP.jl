@@ -59,29 +59,66 @@ function s2Qidx(s::Vector{Int64},N::Integer)
   Ns = length(s)
   return sub2ind(N*ones(Int64, Ns), reverse(s)...)
 end
-function QVeval(s, action, Qdict,V)
+
+
+function findn_rows{Tv,Ti}(S::SparseMatrixCSC{Tv,Ti}, colIdx::Integer)
+    idx = S.colptr[colIdx] : (S.colptr[colIdx+1]-1)
+    return (S.rowval[idx] , S.nzval[idx])
+end
+
+
+function QVeval(s, action, Qtdict, V::Vector{Float64}, β::Float64)
   #We'll assume that the actions
-  #are (idx, act), Qdict is
+  #are (idx, act), Qtdict is
   (idx, act) = action;
   #First, get the Q that is relevant
-  actQ = [:∅ for i in 1:g_nI]
+  actQ = (Symbol)[:∅ for i in 1:g_nI]
   actQ[1] = act;
-  Q = Qdict[actQ]
+  #TODO: Make sure this is a reference
+  # and NOT a copy!
+  Qt = Qtdict[actQ]
 
   #Next, re-order the
   #states so that we are addressing
   #the right instance
-
   so  = swap(s, 1, idx)
-  sop = swap(sp, 1, idx)
 
 
   #The last thing left to do is figure out
   #how to index into Q based on the ordering!
   si  = s2Qidx(so, g_N)
-  spi = s2Qidx(sop, g_N)
 
-  #Finally, we are ready to evaluate Q and return
-  #the value
-  return Q[si, spi]
+  #These are the rows of Qt for this column,
+  #which means these are the columns of Q for this
+  #state (s -> si). These indices can be used to
+  #index into the value function V!
+  indices = Qt.colptr[si] : (Qt.colptr[si+1]-1)
+  vIndices = Qt.rowval[indices]
+
+  #Diagonal element is negative by construction
+  #But q(x) is defined as the positive value
+  qx = -Qt[si,si]
+
+  #q(x) is not supposed to be part of the summation
+  #we will later add Qt[si,si]*V[si] so starting with -Qt[si,si] will cancel it out
+  qVsum =  qx * V[si]
+
+  for idx in indices
+    Qval = Qt.nzval[idx]
+
+    vIdx = Qt.rowval[idx]
+    #TODO: take advantage of the state ordering for V!
+    qVsum += Qval * V[vIdx]
+  end
+
+  #Don't forget that we summed in
+
+  return (qVsum) / (β + qx)
+end
+
+#TODO: Implement this properly for
+#autoATC
+function R(s, a)
+
+
 end
