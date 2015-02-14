@@ -4,29 +4,9 @@ else
   using Iterators
 end
 
-
-#Number of instances
-g_nI = 2
-#Number of nodes per instaces
-g_N = 5
-
-g_noaction = (0, :∅)
-
-
-function combos_with_replacement(list, k)
-    n = length(list)
-    [[list[c[i]-i+1] for i=1:length(c)] for c in combinations([1:(n+k-1)],k)]
-end
-
-#Get all possible states, allowing replacement, but order does not matter:
-const g_S = combos_with_replacement(1:g_N, g_nI)
-const g_NS = length(g_S)
-#To avoid having to hash this all the time, we'll create an S2i function
-const g_S2i_dict = Dict(g_S,[1:g_NS])
-function S2i(s::typeof(g_S[1]))
-  return g_S2i_dict[sort(s)]
-end
-
+###########################################
+#Generic functions
+###########################################
 
 #Defining the Kronecker delta summation operator
 function kronSum(A,B)
@@ -57,10 +37,70 @@ function swap(s, i, j)
   return sc
 end
 
-function s2Qidx(s::Vector{Int64},N::Integer)
-  Ns = length(s)
-  return sub2ind(N*ones(Int64, Ns), reverse(s)...)
+
+
+function combos_with_replacement(list, k)
+    n = length(list)
+    [[list[c[i]-i+1] for i=1:length(c)] for c in combinations([1:(n+k-1)],k)]
 end
+
+###########################################
+#problem definitions
+###########################################
+
+
+#Number of instances
+g_nVehicles = 2
+#Number of nodes per instaces
+g_nNodes = 5
+
+g_noaction = (0, :∅)
+
+
+
+#Get all possible states, allowing replacement, but order does not matter:
+const g_Sshort = combos_with_replacement(1:g_nNodes, g_nVehicles)
+const g_nSshort = length(g_Sshort)
+#To avoid having to hash this all the time, we'll create an s2shortidx function
+const g_s2shortidx_dict = (typeof(g_Sshort[1]) => Int64)[g_Sshort[sidx] => sidx for sidx in 1:g_nSshort]
+
+
+###########################################
+#Awesome functions for indexing magic :)
+###########################################
+
+function s2shortidx(s::typeof(g_Sshort[1]))
+  return g_s2shortidx_dict[sort(s)]
+end
+function shortidx2s(sidx::Int64)
+  return g_Sshort[sidx]
+end
+
+function s2longidx(s::Vector{Int64})
+  #Note the reverse due to the nature of s2longidx!
+  return sub2ind(g_nNodes*ones(s), reverse(s)...)
+end
+
+function longidx2s(lidx::Int64)
+  dims = g_nNodes*ones(Int64, g_nVehicles)
+  s_reversed = [ind2sub(tuple(dims...), lidx) ...]
+  return reverse(s_reversed)
+end
+
+function lidx2sidx(lidx::Int64)
+  dims = g_nNodes*ones(Int64, g_nVehicles)
+  s_reversed = [ind2sub(tuple(dims...), lidx) ...]
+  #Note how we don't bother about reversing
+  #things since s2shortidx sorts things anyway!
+  return s2shortidx(s_reversed)
+end
+
+#Note that there is not a unique lidx
+#that corresponds to a given sidx!
+function sidx2lidx(sidx::Int64)
+  return s2longidx(g_Sshort[sidx])
+end
+###########################################
 
 
 function findn_rows{Tv,Ti}(S::SparseMatrixCSC{Tv,Ti}, colIdx::Integer)
@@ -74,7 +114,7 @@ function QVeval(s, action, Qtdict, V::Vector{Float64}, β::Float64)
   #are (idx, act), Qtdict is
   (idx, act) = action;
   #First, get the Q that is relevant
-  actQ = (Symbol)[:∅ for i in 1:g_nI]
+  actQ = (Symbol)[:∅ for i in 1:g_nVehicles]
   actQ[1] = act;
   #TODO: Make sure this is a reference
   # and NOT a copy!
@@ -88,7 +128,7 @@ function QVeval(s, action, Qtdict, V::Vector{Float64}, β::Float64)
 
   #The last thing left to do is figure out
   #how to index into Q based on the ordering!
-  si  = s2Qidx(so, g_N)
+  si  = s2longidx(so)
 
   #These are the rows of Qt for this column,
   #which means these are the columns of Q for this
@@ -139,4 +179,41 @@ function r(s::Vector{Int64}, a)
   end
 
   return R;
+end
+
+
+function gaussSeidel!(V)
+  Aopt = [g_noaction for i in 1:length(g_Sshort)];
+
+@time for i in 1:100
+    maxVchange = 0.
+    for (si, s) in enumerate(g_Sshort)
+        β = 1./0.95
+        aopt = g_noaction
+        Qmax = QVeval(s, g_noaction, Qt_joint, V, β)
+        for a in product([1,2], [:L, :R, :S]) #should be validActions(s)
+            Qa = QVeval(s, a, Qt_joint, V, β)
+            if Qa > Qmax
+                Qmax = Qa
+                aopt = a
+            end
+        end
+
+        maxVchange = max(maxVchange, abs(V[s2longidx(s)] - Qmax))
+        #this is hacky for now ...
+        #Ideally V should only be the size of g_Sshort!
+        for s_same in permutations(s)
+            si_same = s2longidx(s_same)
+            V[si_same] = Qmax
+        end
+        Aopt[si] = aopt
+    end
+    if(maxVchange < 1)
+        println("stopping after ", i)
+        break
+    end
+end
+
+return Aopt
+
 end
