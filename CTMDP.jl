@@ -1,4 +1,10 @@
-include("pattern.jl");
+
+#It is assumed that someone else is providing the following:
+#g_allStates: an array of symbols representing all possible substates that we can be in
+#g_sn: a dictionary of type (Symbol => Int64) which goes from substate to index
+#validActions(S): function which tells us which actions are allowed!
+#g_noaction: the noaction case
+
 
 #Number of nodes per instaces
 g_nNodes = length(unique(g_allstates))
@@ -33,10 +39,10 @@ const xType = Int64; const XType = Vector{Int64}
 
 #Going between symbol representation and index representation
 function s2x(s::sType)
-  return (sn::Dict{Symbol, Int64})[s]
+  return (g_sn::Dict{Symbol, Int64})[s]
 end
 function S2X(S::SType)
-  return xType[(sn::Dict{Symbol,Int64})[s] for s in S]
+  return xType[(g_sn::Dict{Symbol,Int64})[s] for s in S]
 end
 function x2s(x::xType)
   return (g_allstates::Vector{Symbol})[x]
@@ -129,7 +135,8 @@ function unitTest(idx, isCompact)
     Xl = sort(Xl);
     Sl = X2S(Xl)
   end
-  @test Xc == Xl == S2X(Sl) == S2X(Sc)
+  @test Xc == Xl == sort(Xl) == sort(Xc)
+  @test Xc == S2X(Sl) == S2X(Sc)
   @test Sc == Sl == X2S(Xc) == X2S(Xl)
 end
 for cidx in rand(1:g_nXcomp, 100)
@@ -198,7 +205,7 @@ function QVeval(X::XType, action::typeof(g_noaction), Qtdict, Vcomp::Vector{Floa
 
 
   #Next, re-order the states so that we are addressing the right instance
-  Xo = swap!(X, 1, idx)
+  Xo = swap(X, 1, idx)
 
   #Find the long index
   X_lidx  = X2LIDX(Xo)
@@ -222,7 +229,7 @@ function QVeval(X::XType, action::typeof(g_noaction), Qtdict, Vcomp::Vector{Floa
   for Qsparse_idx in Qsparse_indices
     Qval = Qt.nzval[Qsparse_idx]
     V_LIDX = Qt.rowval[Qsparse_idx]
-    V_CIDX = CIDX2LIDX(V_LIDX)
+    V_CIDX = LIDX2CIDX(V_LIDX)
 
     qVsum += Qval * Vcomp[V_CIDX]
   end
@@ -244,7 +251,7 @@ function r(X::XType, a::typeof(g_noaction))
 
   if(Ns != Ns_u)
     R = -10000.
-  elseif 1 in s
+  elseif 1 in X
     R = 100.
   end
 
@@ -258,14 +265,14 @@ end
 
 function gaussSeidel!(Vcomp::Vector{Float64}, γ::Float64)
 
-  Aopt = [g_noaction for i in 1:g_nXcomp];
+  Aopt = (typeof(g_noaction))[g_noaction for i in 1:g_nXcomp];
 
   @time for iter in 1:100
     maxVchange = 0.
     for X in g_Xcomp
         aopt = g_noaction
         Qmax = -Inf
-        for a in validActions(X2S(X))
+        for a in validActions(X2S(X)) #TODO: make Qt_joint and actions be integers instead of tuple symbol!
             Qa = QVeval(X, a, Qt_joint, Vcomp, γ)
             if Qa > Qmax
                 Qmax = Qa
@@ -288,4 +295,38 @@ function gaussSeidel!(Vcomp::Vector{Float64}, γ::Float64)
 
   return Aopt
 
+end
+
+
+function policy_X2a(X::XType, Aopt::Vector{typeof(g_noaction)})
+  Xperm = sortperm(X)
+  X_cidx = X2CIDX(X)
+  act = Aopt[X_cidx]
+
+  if act != g_noaction
+    pidx = [1:length(X)][Xperm[act[1]]]
+    act = (pidx, act[2])
+  end
+  return act
+
+end
+function policy_S2a(S::SType, Aopt::Vector{typeof(g_noaction)})
+  return policy_X2a(S2X(S),Aopt)
+end
+
+
+###################
+
+function uniformize(Q)
+    T = copy(Q)
+    dQ = diag(Q);
+    κ = -minimum(dQ)
+    Isp = spdiagm(ones(size(Q,1)))
+    T = Q/κ + Isp
+    #p = T * ones(size(T,1))
+    #T = T * spdiagm(1./p) #normalize to 1
+end
+function sample(Q, dt)
+    Isp = spdiagm(ones(size(Q,1)))
+    M = Isp + Q * dt
 end

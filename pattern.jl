@@ -20,7 +20,7 @@ rng = MersenneTwister()
 #############################################
 α = 1.0; #Probability of following ATC command
 β = 0.01; #Fraction of atc cost relative to collision cost
-g_noaction = (0, :∅)
+const g_noaction = (0, :∅)
 
 α_range = [0., 0.05, 0.25, 0.5, 0.75, 0.85, 0.95, 1.]
 β_range = [0., 0.01, 0.1, 0.25, 0.5, 1.]
@@ -48,19 +48,20 @@ normalTrans = { [:T, :T, :R, :U1, :LX1, :LD1, :LD2, :LB1, :F1, :R, :T];
                                         [:U2, :LDep, :LDep, :LArr, :LArr, :LD1];[:LArr, :LD2];[:LArr, :LD3];
                                         [:U2, :RDep, :RDep, :RArr, :RArr, :RD1];[:RArr, :RD2];[:RArr, :RD3];}
 
-g_allstates = [];
+allstates = [];
 for k in 1:size(normalTrans, 1)
   for i in 2:length(normalTrans[k])
       addConn!(NextStates, normalTrans[k][i-1], normalTrans[k][i])
   end
-  g_allstates = unique([g_allstates, normalTrans[k]])
+  allstates = unique([allstates, normalTrans[k]])
 end
 sn = (Symbol => Int64)[]
-for i in 1:length(g_allstates)
-    sn[g_allstates[i]] = i
+for i in 1:length(allstates)
+    sn[allstates[i]] = i
 end
 
-
+const g_allstates = allstates;
+const g_sn = sn;
 #############################################
 ## Possible transitions
 #############################################
