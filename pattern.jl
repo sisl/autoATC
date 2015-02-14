@@ -48,18 +48,17 @@ normalTrans = { [:T, :T, :R, :U1, :LX1, :LD1, :LD2, :LB1, :F1, :R, :T];
                                         [:U2, :LDep, :LDep, :LArr, :LArr, :LD1];[:LArr, :LD2];[:LArr, :LD3];
                                         [:U2, :RDep, :RDep, :RArr, :RArr, :RD1];[:RArr, :RD2];[:RArr, :RD3];}
 
-allstates = [];
+g_allstates = [];
 for k in 1:size(normalTrans, 1)
   for i in 2:length(normalTrans[k])
       addConn!(NextStates, normalTrans[k][i-1], normalTrans[k][i])
   end
-  allstates = unique([allstates, normalTrans[k]])
+  g_allstates = unique([g_allstates, normalTrans[k]])
 end
 sn = (Symbol => Int64)[]
-for i in 1:length(allstates)
-    sn[allstates[i]] = i
+for i in 1:length(g_allstates)
+    sn[g_allstates[i]] = i
 end
-
 
 
 #############################################
@@ -107,8 +106,8 @@ xy[:LD3] = [-2*dx, dy];
 xy[:LB2] = [-2.5*dx, dy/2];
 xy[:LDep] = [dx, 2*dy]
 xy[:LArr] = [-dx, 2*dy]
-allstates_string = [string(a) for a in allstates]
-for astr in allstates_string
+g_allstates_string = [string(a) for a in g_allstates]
+for astr in g_allstates_string
   if(astr[1] == 'R')
     astr_l = replace(astr, 'R', 'L')
     a = symbol(astr)
@@ -264,7 +263,7 @@ function plotSim(S, Actions, collisions, rewards; animation = false, Ncolprev = 
       ax = PyPlot.subplot(2,1,1)
     end
 
-    for s in allstates
+    for s in g_allstates
       (x, y) = xy[s]
         PyPlot.text(x, y, s, fontsize=10, alpha=0.8, bbox={"facecolor" => "white", "alpha"=>0.2})
     end
@@ -289,7 +288,7 @@ function plotSim(S, Actions, collisions, rewards; animation = false, Ncolprev = 
     NcolSum = cumsum(collisions);
     RewardSum = cumsum(rewards)/1000.;
 
-    NcCount = Dict(allstates, zeros(size(allstates)));
+    NcCount = Dict(g_allstates, zeros(size(g_allstates)));
     if(Nc > 0.)
       if(animation)
         cidx = [cidx[end]]
@@ -304,7 +303,7 @@ function plotSim(S, Actions, collisions, rewards; animation = false, Ncolprev = 
         end
       end
 
-      for s in allstates
+      for s in g_allstates
             msize = int(50.*NcCount[s]/Nsum)
             x = xy[s][1]; y = xy[s][2];
             if animation
