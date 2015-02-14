@@ -9,15 +9,24 @@ end
 
 rng = MersenneTwister()
 
+
+###########################################
+#problem definitions
+###########################################
+
+
 #############################################
 #Parameters
 #############################################
 α = 1.0; #Probability of following ATC command
 β = 0.01; #Fraction of atc cost relative to collision cost
-noaction = (0, :∅)
+g_noaction = (0, :∅)
 
 α_range = [0., 0.05, 0.25, 0.5, 0.75, 0.85, 0.95, 1.]
 β_range = [0., 0.01, 0.1, 0.25, 0.5, 1.]
+
+
+
 #############################################
 #Set up states
 NextStates = (Symbol => Array{Symbol, 1})[]
@@ -169,6 +178,49 @@ function probFromTo(from::Symbol, to::Symbol, receivedATC::Bool, atcDesired::Sym
 end
 
 
+
+
+#############################################
+function validActions(ss)
+#############################################
+  A = [g_noaction]; sizehint(A, 10);
+  for (i, s) in enumerate(ss)
+    #Can't tell departing aircrafts what to do
+    if !(s in [:LDep, :RDep])
+      snext = NextStates[s]
+      if(length(snext) > 1)
+        for sn in snext
+          #Can't tell aircraft to depart...
+          if !(sn in [:LDep, :RDep])
+            push!(A, (i, sn))
+          end
+        end
+      end
+    end
+  end
+  return A
+end
+
+
+#############################################
+function Transition(s::Array{Symbol,1}, a::typeof(g_noaction), snext::Array{Symbol,1})
+#############################################
+    p = 1.;
+    idx = 1;
+    for (from, to) in zip(s, snext)
+        p *= probFromTo(from, to, idx == a[1], a[2])
+        idx += 1;
+    end
+    return p;
+end
+
+
+
+
+
+
+
+
 #############################################
 function simulate(s; policy::Dict = Dict(), N=10)
   return simulate(s, (s-> policy[s]), N)
@@ -177,7 +229,7 @@ end
 function simulate(s, policy::Function; N=10, endEarly = false)
 #############################################
     S = {s}
-    A = {noaction}
+    A = {g_noaction}
     for step in 1:N
         Snow = S[end]
         a = policy(Snow)
@@ -286,58 +338,5 @@ function plotSim(S, Actions, collisions, rewards; animation = false, Ncolprev = 
 end
 
 
-
-#############################################
-function validActions(ss)
-#############################################
-  A = [noaction]; sizehint(A, 10);
-  for (i, s) in enumerate(ss)
-    #Can't tell departing aircrafts what to do
-    if !(s in [:LDep, :RDep])
-      snext = NextStates[s]
-      if(length(snext) > 1)
-        for sn in snext
-          #Can't tell aircraft to depart...
-          if !(sn in [:LDep, :RDep])
-            push!(A, (i, sn))
-          end
-        end
-      end
-    end
-  end
-  return A
-end
-
-
-#############################################
-function Transition(s::Array{Symbol,1}, a::typeof(noaction), snext::Array{Symbol,1})
-#############################################
-    p = 1.;
-    idx = 1;
-    for (from, to) in zip(s, snext)
-        p *= probFromTo(from, to, idx == a[1], a[2])
-        idx += 1;
-    end
-    return p;
-end
-
-
-#############################################
-#Defining states
-#############################################
-
-@printf("Defining states \n"); tic()
-S = Vector{Symbol}[[a,b,c,d] for a in allstates, b in allstates, c in allstates, d in allstates]; S = S[:];
-NS = length(S)
-s2i = Dict(S,[1:NS])
-
-toc();
-
-
-@printf("Defining permutations/actions \n"); tic();
-NextPerms = typeof(getNextPerms(S[1]))[getNextPerms(s) for s in S]
-validActs = typeof(validActions(S[1]))[validActions(s) for s in S]
-numValidActs = Int8[length(validActs[i]) for i in 1:NS]
-toc();
 
 

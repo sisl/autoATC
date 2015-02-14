@@ -1,3 +1,23 @@
+include("pattern.jl");
+
+#############################################
+#Defining states
+#############################################
+
+@printf("Defining states \n"); tic()
+S = Vector{Symbol}[[a,b,c,d] for a in allstates, b in allstates, c in allstates, d in allstates]; S = S[:];
+NS = length(S)
+s2i = Dict(S,[1:NS])
+toc();
+
+
+@printf("Defining permutations/actions \n"); tic();
+NextPerms = typeof(getNextPerms(S[1]))[getNextPerms(s) for s in S]
+validActs = typeof(validActions(S[1]))[validActions(s) for s in S]
+numValidActs = Int8[length(validActs[i]) for i in 1:NS]
+toc();
+
+
 
 #############################################
 function NcolNtaxi(s::Vector{Symbol})
