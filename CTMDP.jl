@@ -109,7 +109,7 @@ function findn_rows{Tv,Ti}(S::SparseMatrixCSC{Tv,Ti}, colIdx::Integer)
 end
 
 
-function QVeval(s, action, Qtdict, V::Vector{Float64}, β::Float64)
+function QVeval(s, action, Qtdict, Vshort::Vector{Float64}, β::Float64)
   #We'll assume that the actions
   #are (idx, act), Qtdict is
   (idx, act) = action;
@@ -143,14 +143,13 @@ function QVeval(s, action, Qtdict, V::Vector{Float64}, β::Float64)
 
   #q(x) is not supposed to be part of the summation
   #we will later add Qt[si,si]*V[si] so starting with -Qt[si,si] will cancel it out
-  qVsum =  qx * V[si]
+  qVsum =  qx * Vshort[s2shortidx(so)]
 
   for idx in indices
     Qval = Qt.nzval[idx]
 
     vIdx = Qt.rowval[idx]
-    #TODO: take advantage of the state ordering for V!
-    qVsum += Qval * V[vIdx]
+    qVsum += Qval * Vshort[lidx2sidx(vIdx)]
   end
 
   return (qVsum + r(s, action)) / (β + qx)
@@ -182,32 +181,28 @@ function r(s::Vector{Int64}, a)
 end
 
 
-function gaussSeidel!(V)
-  Aopt = [g_noaction for i in 1:length(g_Sshort)];
+function gaussSeidel!(Vshort)
+  Aopt = [g_noaction for i in 1:g_nSshort];
 
 @time for i in 1:100
     maxVchange = 0.
     for (si, s) in enumerate(g_Sshort)
         β = 1./0.95
         aopt = g_noaction
-        Qmax = QVeval(s, g_noaction, Qt_joint, V, β)
+        Qmax = QVeval(s, g_noaction, Qt_joint, Vshort, β)
         for a in product([1,2], [:L, :R, :S]) #should be validActions(s)
-            Qa = QVeval(s, a, Qt_joint, V, β)
+            Qa = QVeval(s, a, Qt_joint, Vshort, β)
             if Qa > Qmax
                 Qmax = Qa
                 aopt = a
             end
         end
 
-        maxVchange = max(maxVchange, abs(V[s2longidx(s)] - Qmax))
-        #this is hacky for now ...
-        #Ideally V should only be the size of g_Sshort!
-        for s_same in permutations(s)
-            si_same = s2longidx(s_same)
-            V[si_same] = Qmax
-        end
+        maxVchange = max(maxVchange, abs(Vshort[si] - Qmax))
+        Vshort[si] = Qmax
         Aopt[si] = aopt
     end
+
     if(maxVchange < 1)
         println("stopping after ", i)
         break
