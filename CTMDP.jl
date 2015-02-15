@@ -10,7 +10,7 @@
 g_nNodes = length(unique(g_allstates))
 
 #Number of instances
-g_nVehicles = 2
+g_nVehicles = 4
 
 
 function combos_with_replacement(list, k)
