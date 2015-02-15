@@ -237,31 +237,44 @@ function QVeval(X::XType, action::typeof(g_noaction), Qtdict, Vcomp::Vector{Floa
   return (qVsum + r(X, action)) / (β + qx)
 end
 
-#TODO: Implement this properly for
-#autoATC
-#Consider precomputing r ?
-function r(X::XType, a::typeof(g_noaction))
-  #rate in state 1 is the best
-  #unless two things are in the same state!
 
-  Ns = length(X)
-  Ns_u = length(unique(X))
+#############################################
+function NcolNtaxi(s::Vector{Symbol})
+#############################################
+  #We don't need to worry about collisions
+  #if we are in taxi, departure or arrival
+  notColl = find(x -> !(x in [:T, :LDep, :RDep, :LArr, :RArr]), s)
+  inTaxi = find(x -> x == :T, s)
 
-  R = 0.
+  Nc = length(notColl);
+  Ncu = length(unique(s[notColl]));
 
-  if(Ns != Ns_u)
-    R = -10000.
-  elseif 1 in X
-    R = 100.
-  end
+  return [Nc - Ncu, length(inTaxi)]
+end
+#############################################
+function Reward(s::Vector{Symbol}, a::typeof(g_noaction), β::Float64)
+#############################################
+    r = 0.
 
-  if(a != g_noaction)
-    R -= 100.
-  end
+    #Each collision costs 1000.
+    #And each aircraft just sitting on the taxi also incurs cost
+    collisionCost = -1000.
+    taxiCost = -10.
 
-  return R;
+    #Actions have a cost
+    if(a != g_noaction)
+        r += β * collisionCost;
+    end
+
+    (ncol, ntaxi) = NcolNtaxi(s)
+    r += ncol * collisionCost + ntaxi * taxiCost;
+
+    return r;
 end
 
+function r(X::XType, a::typeof(g_noaction))
+  return Reward(X2S(X), a, 0.01)
+end
 
 function gaussSeidel!(Vcomp::Vector{Float64}, γ::Float64)
 

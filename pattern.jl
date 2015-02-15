@@ -19,11 +19,7 @@ rng = MersenneTwister()
 #Parameters
 #############################################
 α = 1.0; #Probability of following ATC command
-β = 0.01; #Fraction of atc cost relative to collision cost
 const g_noaction = (0, :∅)
-
-α_range = [0., 0.05, 0.25, 0.5, 0.75, 0.85, 0.95, 1.]
-β_range = [0., 0.01, 0.1, 0.25, 0.5, 1.]
 
 
 
@@ -62,6 +58,49 @@ end
 
 const g_allstates = allstates;
 const g_sn = sn;
+const g_allstates_string = (ASCIIString)[string(a) for a in g_allstates]
+
+
+#Add transition times for each state in minutes
+teaTime = (Symbol => Float64)[]
+teaTime[:T] = 5
+teaTime[:R] = 0.5
+teaTime[:GO] = 1
+
+teaTime[:U1] = 1; teaTime[:U2] = 2
+
+teaTime[:LX1] = teaTime[:LX2] = 0.5
+
+teaTime[:LD0] = 2
+teaTime[:LD1] = teaTime[:LD2] = 1.5
+teaTime[:LD3] = 2
+
+teaTime[:LB1] = teaTime[:LB2] = 0.5
+
+teaTime[:F0] = 2; teaTime[:F1] = 1
+teaTime[:LDep] = 10; teaTime[:LArr] = 2
+
+
+function symmetrize!(halfDict, symFun)
+for astr in g_allstates_string
+  if(astr[1] == 'R')
+    astr_l = replace(astr, 'R', 'L')
+    a = symbol(astr)
+    b = symbol(astr_l)
+    if b in keys(halfDict)
+      halfDict[a] = symFun(halfDict[b])
+    end
+  end
+end
+end
+
+symmetrize!(teaTime, x -> x)
+
+using Base.Test
+@test length(teaTime) == length(g_allstates)
+
+
+
 #############################################
 ## Possible transitions
 #############################################
@@ -93,17 +132,9 @@ xy[:LD3] = [-2*dx, dy];
 xy[:LB2] = [-2.5*dx, dy/2];
 xy[:LDep] = [dx, 2*dy]
 xy[:LArr] = [-dx, 2*dy]
-g_allstates_string = [string(a) for a in g_allstates]
-for astr in g_allstates_string
-  if(astr[1] == 'R')
-    astr_l = replace(astr, 'R', 'L')
-    a = symbol(astr)
-    b = symbol(astr_l)
-    if b in keys(xy)
-      xy[a] = [xy[b][1], -xy[b][2]]
-    end
-  end
-end
+
+symmetrize!(xy, x -> [x[1], -x[2]])
+
 
 ##
 #############################################
