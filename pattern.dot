@@ -1,0 +1,74 @@
+digraph G {
+rankdir=LR
+
+splines=true
+node [shape = box]
+
+F1[label="F1", pin=true, pos="-2.00, 0.00!"]
+U2[label="U2", pin=true, pos="4.00, 0.00!"]
+LD3[label="LD3", pin=true, pos="-4.00, 2.00!"]
+F0[label="F0", pin=true, pos="-4.00, 0.00!"]
+LD1[label="LD1", pin=true, pos="2.00, 2.00!"]
+LX2[label="LX2", pin=true, pos="5.00, 1.00!"]
+T[label="Taxi (T)", pin=true, pos="0.00, -1.00!", shape = polygon, width = 1.5]
+RB2[label="RB2", pin=true, pos="-5.00, -1.00!"]
+LX1[label="LX1", pin=true, pos="3.00, 1.00!"]
+RX2[label="RX2", pin=true, pos="5.00, -1.00!"]
+RD2[label="RD2", pin=true, pos="-2.00, -2.00!"]
+GO[label="GO", pin=true, pos="0.00, 1.00!"]
+RArr[label="RArr", pin=true, pos="-2.00, -4.00!"]
+LD2[label="LD2", pin=true, pos="-2.00, 2.00!"]
+LArr[label="LArr", pin=true, pos="-2.00, 4.00!"]
+RD1[label="RD1", pin=true, pos="2.00, -2.00!"]
+RD3[label="RD3", pin=true, pos="-4.00, -2.00!"]
+RD0[label="RD0", pin=true, pos="4.00, -2.00!"]
+LB1[label="LB1", pin=true, pos="-3.00, 1.00!"]
+U1[label="U1", pin=true, pos="2.00, 0.00!"]
+LDep[label="LDep", pin=true, pos="2.00, 4.00!", shape = polygon]
+R[label="Runway (R)", pin=true, pos="0.00, 0.00!", width=2]
+RX1[label="RX1", pin=true, pos="3.00, -1.00!"]
+LD0[label="LD0", pin=true, pos="4.00, 2.00!"]
+LB2[label="LB2", pin=true, pos="-5.00, 1.00!"]
+RB1[label="RB1", pin=true, pos="-3.00, -1.00!"]
+RDep[label="RDep", pin=true, pos="2.00, -4.00!", shape = polygon]
+F1 -> R
+F1 -> GO
+U2 -> LX2
+U2 -> RX2
+U2 -> LDep
+U2 -> RDep
+LD3 -> LB2
+F0 -> F1
+LD1 -> LD2
+LX2 -> LD0
+T -> R
+RB2 -> F0
+LX1 -> LD1
+RX2 -> RD0
+RD2 -> RB1
+RD2 -> RD3
+GO -> U1
+RArr -> RD1
+RArr -> RD2
+RArr -> RD3
+LD2 -> LB1
+LD2 -> LD3
+LArr -> LD1
+LArr -> LD2
+LArr -> LD3
+RD1 -> RD2
+RD3 -> RB2
+RD0 -> RD1
+LB1 -> F1
+U1 -> LX1
+U1 -> RX1
+U1 -> U2
+LDep -> LArr
+R -> U1
+R -> T
+RX1 -> RD1
+LD0 -> LD1
+LB2 -> F0
+RB1 -> F1
+RDep -> RArr
+}

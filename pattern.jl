@@ -41,12 +41,12 @@ function addConn!(d, f, t)
     end
 end
 
-normalTrans = { [:T, :T, :R, :U1, :LX1, :LD1, :LD2, :LB1, :F1, :R, :T];
+normalTrans = { [:T,  :R, :U1, :LX1, :LD1, :LD2, :LB1, :F1, :R, :T];
                             [:U1, :RX1, :RD1, :RD2, :RB1, :F1];
                   [:F1, :GO, :U1, :U2, :LX2, :LD0, :LD1, :LD2, :LD3, :LB2, :F0, :F1];
                                  [:U2, :RX2, :RD0, :RD1, :RD2, :RD3, :RB2, :F0];
-                                        [:U2, :LDep, :LDep, :LArr, :LArr, :LD1];[:LArr, :LD2];[:LArr, :LD3];
-                                        [:U2, :RDep, :RDep, :RArr, :RArr, :RD1];[:RArr, :RD2];[:RArr, :RD3];}
+                                        [:U2, :LDep, :LArr, :LD1];[:LArr, :LD2];[:LArr, :LD3];
+                                        [:U2, :RDep, :RArr, :RD1];[:RArr, :RD2];[:RArr, :RD3];}
 
 allstates = [];
 for k in 1:size(normalTrans, 1)
@@ -78,20 +78,6 @@ function getNextPerms(ss::Array{Symbol,1})
 end
 
 
-
-##
-#############################################
-##Printing to do file for vizualization
-#############################################
-#for f in keys(NextStates)
-#    @printf("%s[label=\"%s(%i)\", pos=\"%.2f, %.2f\"]\n", f, f, sn[f], xy[f][1], xy[f][2])
-#end
-#for f in keys(NextStates)
-#    for t in NextStates[f]
-#        @printf("%s -> %s\n", f, t)
-#    end
-#end
-
 #############################################
 #coordinates
 #############################################
@@ -118,6 +104,20 @@ for astr in g_allstates_string
     end
   end
 end
+
+##
+#############################################
+##Printing to do file for vizualization
+#############################################
+#for f in keys(NextStates)
+#    @printf("%s[label=\"%s(%i)\", pos=\"%.2f, %.2f\"]\n", f, f, sn[f], xy[f][1], xy[f][2])
+#end
+#for f in keys(NextStates)
+#    for t in NextStates[f]
+#        @printf("%s -> %s\n", f, t)
+#    end
+#end
+
 
 
 #############################################
