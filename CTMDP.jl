@@ -10,7 +10,7 @@
 g_nNodes = length(unique(g_allstates))
 
 #Number of instances
-g_nVehicles = 2
+g_nVehicles = 4
 
 
 function combos_with_replacement(list, k)
@@ -279,6 +279,7 @@ function gaussSeidel!(Vcomp::Vector{Float64}, γ::Float64)
 
   Aopt = (typeof(g_nullAct))[g_nullAct for i in 1:g_nXcomp];
 
+  start = time()
   @time for iter in 1:100
     maxVchange = 0.
     for X in g_Xcomp
@@ -302,6 +303,8 @@ function gaussSeidel!(Vcomp::Vector{Float64}, γ::Float64)
     if(maxVchange < 1)
         @printf("Stopping after %i iterations (maxVchange = %.2f)\n", iter, maxVchange)
         break
+    elseif mod(iter, 5) == 0
+        @printf("At iteration #%i (%.2f sec)\n", iter, time() - start)
     end
   end
 
