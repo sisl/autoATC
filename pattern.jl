@@ -20,7 +20,7 @@ rng = MersenneTwister()
 #############################################
 α = 1.0; #Probability of following ATC command
 const g_noaction = (0, :∅)
-
+const g_nullAct = [0,0]
 
 
 #############################################
@@ -212,10 +212,10 @@ end
 
 
 #############################################
-function validActions(ss)
+function validActions(S)
 #############################################
   A = [g_noaction]; sizehint(A, 10);
-  for (i, s) in enumerate(ss)
+  for (i, s) in enumerate(S)
     #Can't tell departing aircrafts what to do
     if !(s in [:LDep, :RDep])
       snext = NextStates[s]
@@ -232,13 +232,48 @@ function validActions(ss)
   return A
 end
 
+function extAct2compAct(act::typeof(g_noaction), S)
+  cAct = copy(g_nullAct)
+  if act != g_noaction
+    sidx = act[1]
+    cAct[1] = sidx
+    for (cidx, s) in enumerate(NextStates[S[sidx]])
+      if s == act[2]
+        cAct[2] = cidx
+      end
+    end
+  end
+  return cAct
+end
 
+function compAct2extAct(act::typeof(g_nullAct), S)
+  eAct = copy(g_noaction)
+  if act != g_nullAct && act[1] > 0 && act[1] <= length(S)
+    sidx = act[1]
+    Sp = NextStates[S[sidx]]
+    if act[2] <= length(Sp) #otherwise not a valid action!
+      eAct = (act[1], Sp[act[2]])
+    end
+  end
+  return eAct
+end
+
+#Could probably rewrite this to not have to call everything
+#else and instead just use the number of next available states!
+function validCompactActions(S)
+  actions = validActions(S)
+  compActions = Array(typeof(g_nullAct),length(actions),1)
+  for (idx, act) in enumerate(actions)
+    compActions[idx] = extAct2compAct(act, S)
+  end
+  return compActions
+end
 #############################################
-function Transition(s::Array{Symbol,1}, a::typeof(g_noaction), snext::Array{Symbol,1})
+function Transition(S::Array{Symbol,1}, a::typeof(g_noaction), Snext::Array{Symbol,1})
 #############################################
     p = 1.;
     idx = 1;
-    for (from, to) in zip(s, snext)
+    for (from, to) in zip(S, Snext)
         p *= probFromTo(from, to, idx == a[1], a[2])
         idx += 1;
     end
@@ -246,6 +281,10 @@ function Transition(s::Array{Symbol,1}, a::typeof(g_noaction), snext::Array{Symb
 end
 
 
+function Transition(S::Array{Symbol,1}, acomp::typeof(g_nullAct), Snext::Array{Symbol,1})
+  aext = compAct2extAct(acomp, S)
+  return Transition(S, aext, Snext)
+end
 
 
 

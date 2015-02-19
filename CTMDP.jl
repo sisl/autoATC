@@ -2,15 +2,15 @@
 #It is assumed that someone else is providing the following:
 #g_allStates: an array of symbols representing all possible substates that we can be in
 #g_sn: a dictionary of type (Symbol => Int64) which goes from substate to index
-#validActions(S): function which tells us which actions are allowed!
-#g_noaction: the noaction case
+#legalActions(S): function which tells us which actions are allowed!
+#g_nullAct: the noaction case
 
 
 #Number of nodes per instaces
 g_nNodes = length(unique(g_allstates))
 
 #Number of instances
-g_nVehicles = 4
+g_nVehicles = 2
 
 
 function combos_with_replacement(list, k)
@@ -193,15 +193,14 @@ function findn_rows{Tv,Ti}(S::SparseMatrixCSC{Tv,Ti}, colIdx::Integer)
 end
 
 
-function QVeval(X::XType, action::typeof(g_noaction), Qtdict, Vcomp::Vector{Float64}, γ::Float64)
+function QVeval(X::XType, action::typeof(g_nullAct), Qtjoint, Vcomp::Vector{Float64}, γ::Float64)
 
   β = 1./ γ
 
   (idx, act) = action;
-  #First, get the Q that is relevant
-  actQ = (Symbol)[:∅ for i in 1:g_nVehicles]
-  actQ[1] = act;
-  Qt = Qtdict[actQ] #TODO: Make sure this is a reference and NOT a copy!
+  #Note the +1, we assume that act == 0 (from the null action) is a valid action!
+  #i.e. all the Qtjoint arrays are offset by 1
+  Qt = Qtjoint[act+1] #TODO: Make sure this is a reference and NOT a copy!
 
 
   #Next, re-order the states so that we are addressing the right instance
@@ -252,7 +251,7 @@ function NcolNtaxi(s::Vector{Symbol})
   return [Nc - Ncu, length(inTaxi)]
 end
 #############################################
-function Reward(s::Vector{Symbol}, a::typeof(g_noaction), β::Float64)
+function Reward(s::Vector{Symbol}, a::typeof(g_nullAct), β::Float64)
 #############################################
     r = 0.
 
@@ -262,7 +261,7 @@ function Reward(s::Vector{Symbol}, a::typeof(g_noaction), β::Float64)
     taxiCost = -10.
 
     #Actions have a cost
-    if(a != g_noaction)
+    if(a != g_nullAct)
         r += β * collisionCost;
     end
 
@@ -272,20 +271,20 @@ function Reward(s::Vector{Symbol}, a::typeof(g_noaction), β::Float64)
     return r;
 end
 
-function r(X::XType, a::typeof(g_noaction))
+function r(X::XType, a::typeof(g_nullAct))
   return Reward(X2S(X), a, 0.01)
 end
 
 function gaussSeidel!(Vcomp::Vector{Float64}, γ::Float64)
 
-  Aopt = (typeof(g_noaction))[g_noaction for i in 1:g_nXcomp];
+  Aopt = (typeof(g_nullAct))[g_nullAct for i in 1:g_nXcomp];
 
   @time for iter in 1:100
     maxVchange = 0.
     for X in g_Xcomp
-        aopt = g_noaction
+        aopt = g_nullAct
         Qmax = -Inf
-        for a in validActions(X2S(X)) #TODO: make Qt_joint and actions be integers instead of tuple symbol!
+        for a in legalActions(X2S(X))
             Qa = QVeval(X, a, Qt_joint, Vcomp, γ)
             if Qa > Qmax
                 Qmax = Qa
@@ -311,19 +310,27 @@ function gaussSeidel!(Vcomp::Vector{Float64}, γ::Float64)
 end
 
 
-function policy_X2a(X::XType, Aopt::Vector{typeof(g_noaction)})
+function policy_X2a(X::XType, Aopt::Vector{typeof(g_nullAct)})
   Xperm = sortperm(X)
   X_cidx = X2CIDX(X)
-  act = Aopt[X_cidx]
 
-  if act != g_noaction
-    pidx = [1:length(X)][Xperm[act[1]]]
-    act = (pidx, act[2])
+  compactAct = Aopt[X_cidx]
+
+  act = g_nullAct
+  if compactAct != g_nullAct
+    pidx = [1:length(X)][Xperm[compactAct[1]]]
+    act = [pidx, compactAct[2]]
+  end
+
+  try
+    act = compAct2extAct(act,X2S(X))
+  catch
+    println(X, sort(X), act, compactAct)
   end
   return act
 
 end
-function policy_S2a(S::SType, Aopt::Vector{typeof(g_noaction)})
+function policy_S2a(S::SType, Aopt::Vector{typeof(g_nullAct)})
   return policy_X2a(S2X(S),Aopt)
 end
 
