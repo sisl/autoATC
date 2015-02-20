@@ -1,3 +1,5 @@
+include("kronfun.jl")
+
 
 #It is assumed that someone else is providing the following:
 #g_allStates: an array of symbols representing all possible substates that we can be in
@@ -10,7 +12,7 @@
 g_nNodes = length(unique(g_allstates))
 
 #Number of instances
-g_nVehicles = 4
+g_nVehicles = 2
 
 
 function combos_with_replacement(list, k)
@@ -155,23 +157,6 @@ end
 ###########################################
 #Generic functions
 ###########################################
-#Defining the Kronecker delta summation operator
-function kronSum(A,B)
-    b = size(B,1)
-    a = size(A,2)
-    Ib = spdiagm(ones(b))
-    Ia = spdiagm(ones(a))
-
-    return kron(A,Ib) + kron(Ia,B)
-end
-#Handling lists
-function kronSum(Alist)
-  A = Alist[1]
-  for j = 2:length(Alist)
-    A = kronSum(A, Alist[j])
-  end
-  return A
-end
 
 
 function swap{T}(s::Vector{T}, i, j)
