@@ -321,7 +321,7 @@ function gaussSeidel!(Qlist, Vcomp::Vector{Float64}, γ::Float64; maxIters=100)
         Aopt[X_cidx] = aopt
     end
 
-    if(maxVchange < 1)
+    if(maxVchange < 1 || iter==maxIters)
         @printf("Stopping after %i iterations (maxVchange = %.2f)\n", iter, maxVchange)
         break
     elseif mod(iter, 5) == 0

@@ -368,11 +368,11 @@ end
 
 
 #################################################
-function runAutoATC(acList::Vector{airplane}, runATC::Symbol)
+function runAutoATC(acList::Vector{airplane}, runATC::Symbol, policyFun)
 #################################################
   act = noaction
   if runATC == :MDP
-    act = PiStarFunSlow([ac.navDest[1] for ac in acList])
+    act = policyFun([ac.navDest[1] for ac in acList])
 #   else
 #     for i in 1:4
 #       ac = acList[i]
@@ -411,7 +411,7 @@ end
 function getDmin(acList::Vector{airplane})
 #################################################
 #Compute the minimum distance to a given aircraft
-  dmin = 1e10
+  dmin = Inf
   idmin = Int64[0, 0]
   for idx in 1:(length(acList)-1)
     ac = acList[idx]
@@ -443,7 +443,7 @@ function getDmin(acList::Vector{airplane})
 end
 
 #################################################
-function simulate!(acList::Vector{airplane}, Tend, stopEarly = false, runATC::Symbol = :MDP, savepath = true)
+function simulate!(acList::Vector{airplane}, Tend, stopEarly = false, runATC::Symbol = :MDP, savepath = true,  policyFun = PiStarFunSlow)
 #################################################
 #Running simulation,
 
@@ -492,7 +492,7 @@ function simulate!(acList::Vector{airplane}, Tend, stopEarly = false, runATC::Sy
     #If any aircraft is about to transition,
     #see if there's an ATC command that should be issued!
     if(readyForCommand)
-      act = runAutoATC(acList, runATC)
+      act = runAutoATC(acList, runATC, policyFun)
       #If we have an action to issue, pass it along
       if act != noaction
         acList[act[1]].atcCommand = act[2]
