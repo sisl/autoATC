@@ -9,10 +9,10 @@ include("kronfun.jl")
 
 
 #Number of nodes per instaces
-g_nNodes = length(unique(g_allstates))
+const g_nNodes = length(unique(g_allstates))
 
 #Number of instances
-g_nVehicles = 2
+const g_nVehicles = 4
 
 
 function combos_with_replacement(list, k)
@@ -178,21 +178,23 @@ function findn_rows{Tv,Ti}(S::SparseMatrixCSC{Tv,Ti}, colIdx::Integer)
 end
 
 
-function QVeval(X::XType, action::typeof(g_nullAct), Qtjoint, Vcomp::Vector{Float64}, γ::Float64)
+#Old one which required all of the Qt matrices to be precomputed!
+function QVeval_old(X::XType, action::typeof(g_nullAct), Qtjoint, Vcomp::Vector{Float64}, γ::Float64)
   β = 1./ γ
 
   (idx, act) = action;
-  #Note the +1, we assume that act == 0 (from the null action) is a valid action!
-  #i.e. all the Qtjoint arrays are offset by 1
-  Qt = Qtjoint[act+1] #TODO: Make sure this is a reference and NOT a copy!
 
-
-  #Next, re-order the states so that we are addressing the right instance
+  #First, re-order the states so that we are addressing the right instance
   Xo = swap(X, 1, idx)
 
   #Find the long index
   X_lidx  = X2LIDX(Xo)
   X_cidx = X2CIDX(Xo)
+
+  #Note the +1, we assume that act == 0 (from the null action) is a valid action!
+  #i.e. all the Qtjoint arrays are offset by 1
+  Qt = Qtjoint[act+1] #TODO: Make sure this is a reference and NOT a copy!
+
 
   #These are the rows of Qt for this column that are non-zero
   #which means these are the columns of Q for this
@@ -218,7 +220,44 @@ function QVeval(X::XType, action::typeof(g_nullAct), Qtjoint, Vcomp::Vector{Floa
   return (qVsum + r(X, action)) / (β + qx)
 end
 
+function QVeval(X::XType, action::typeof(g_nullAct), Qlist, Vcomp::Vector{Float64}, γ::Float64)
+  β = 1./ γ
 
+  (idx, act) = action;
+
+  #First, re-order the states so that we are addressing the right instance
+  Xo = swap(X, 1, idx)
+
+  #Find the long index
+  X_lidx  = X2LIDX(Xo)
+  X_cidx = X2CIDX(Xo)
+
+  #get the relevant Q row
+  Qt = Qi(Qlist[act+1], Qlist[1], g_nVehicles-1, X_lidx)
+
+  #These are the entries of the transition which are non
+  #zero. Note that Qt is a column vector
+  Qsparse_indices = Qt.colptr[1] : (Qt.colptr[2]-1)
+
+  #Diagonal element is negative by construction
+  #But q(x) is defined as the positive value
+  qx = -Qt[X_lidx]
+
+  #q(x) is not supposed to be part of the summation
+  #we will later add Qt[si,si]*V[si] so starting with -Qt[si,si] will cancel it out
+  qVsum =  qx * Vcomp[X_cidx]
+
+  for Qsparse_idx in Qsparse_indices
+    Qval = Qt.nzval[Qsparse_idx]
+    V_LIDX = Qt.rowval[Qsparse_idx]
+    V_CIDX = LIDX2CIDX(V_LIDX)
+
+    qVsum += Qval * Vcomp[V_CIDX]
+  end
+
+  return (qVsum + r(X, action)) / (β + qx)
+
+end
 #############################################
 function NcolNtaxi(s::Vector{Symbol})
 #############################################
@@ -257,7 +296,7 @@ function r(X::XType, a::typeof(g_nullAct))
   return Reward(X2S(X), a, 0.01)
 end
 
-function gaussSeidel!(Vcomp::Vector{Float64}, γ::Float64)
+function gaussSeidel!(Qlist, Vcomp::Vector{Float64}, γ::Float64)
 
   Aopt = (typeof(g_nullAct))[g_nullAct for i in 1:g_nXcomp];
 
@@ -268,7 +307,7 @@ function gaussSeidel!(Vcomp::Vector{Float64}, γ::Float64)
         aopt = g_nullAct
         Qmax = -Inf
         for a in legalActions(X2S(X))
-            Qa = QVeval(X, a, Qt_joint, Vcomp, γ)
+            Qa = QVeval(X, a, Qlist, Vcomp, γ)
             if Qa > Qmax
                 Qmax = Qa
                 aopt = a

@@ -44,16 +44,16 @@ function Ppq_v!(p,q, v)
     return v
 end
 
-function P(m,n)
-    Pmn = spzeros(m*n,m*n)
+function Pmn(m,n)
+    Pmn_ret = spzeros(m*n,m*n)
     for i in 1:m
         for j in 1:n
             k = sub2ind((n,m),j,i)
             l = sub2ind((m,n),i,j)
-            Pmn[k,l] = 1.
+            Pmn_ret[k,l] = 1.
         end
     end
-    return Pmn
+    return Pmn_ret
     #Slow version
     #Pmn = spzeros(m*n,m*n)
     #for i in 1:m
