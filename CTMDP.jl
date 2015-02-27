@@ -296,12 +296,12 @@ function r(X::XType, a::typeof(g_nullAct))
   return Reward(X2S(X), a, 0.01)
 end
 
-function gaussSeidel!(Qlist, Vcomp::Vector{Float64}, γ::Float64)
+function gaussSeidel!(Qlist, Vcomp::Vector{Float64}, γ::Float64; maxIters=100)
 
   Aopt = (typeof(g_nullAct))[g_nullAct for i in 1:g_nXcomp];
 
   start = time()
-  @time for iter in 1:100
+  @time for iter in 1:maxIters
     maxVchange = 0.
     for X in g_Xcomp
         aopt = g_nullAct
