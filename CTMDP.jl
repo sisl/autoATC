@@ -179,7 +179,6 @@ end
 
 
 function QVeval(X::XType, action::typeof(g_nullAct), Qtjoint, Vcomp::Vector{Float64}, γ::Float64)
-
   β = 1./ γ
 
   (idx, act) = action;
@@ -194,8 +193,6 @@ function QVeval(X::XType, action::typeof(g_nullAct), Qtjoint, Vcomp::Vector{Floa
   #Find the long index
   X_lidx  = X2LIDX(Xo)
   X_cidx = X2CIDX(Xo)
-
-
 
   #These are the rows of Qt for this column that are non-zero
   #which means these are the columns of Q for this
