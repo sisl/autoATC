@@ -293,7 +293,7 @@ function Reward(s::Vector{Symbol}, a::typeof(g_nullAct), β::Float64)
 end
 
 function r(X::XType, a::typeof(g_nullAct))
-  return Reward(X2S(X), a, 0.01)
+  return Reward(X2S(X), a, β_cost)
 end
 
 function gaussSeidel!(Qlist, Vcomp::Vector{Float64}, γ::Float64; maxIters=100)

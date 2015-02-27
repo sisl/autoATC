@@ -370,7 +370,7 @@ end
 #################################################
 function runAutoATC(acList::Vector{airplane}, runATC::Symbol, policyFun)
 #################################################
-  act = noaction
+  act = g_noaction
   if runATC == :MDP
     act = policyFun([ac.navDest[1] for ac in acList])
 #   else
@@ -494,7 +494,7 @@ function simulate!(acList::Vector{airplane}, Tend, stopEarly = false, runATC::Sy
     if(readyForCommand)
       act = runAutoATC(acList, runATC, policyFun)
       #If we have an action to issue, pass it along
-      if act != noaction
+      if act != g_noaction
         acList[act[1]].atcCommand = act[2]
         alertCount += 1
       end
