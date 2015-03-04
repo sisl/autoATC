@@ -183,6 +183,7 @@ type airplane
 
   #this just keeps track of the history!
   path::Vector{pos}
+  sLocHist::Vector{Symbol}
 
 
   #Constructors
@@ -197,7 +198,7 @@ type airplane
     new(airspeed, p0, psi, 0, 0, false, false,
         airspeed, pos(0,0,0),
         navDest, destNED,
-        :∅, [deepcopy(p0)])
+        :∅, [deepcopy(p0)], [s])
 
   end
   airplane(airspeed) = airplane(airspeed, :R)
@@ -237,6 +238,7 @@ function move!(ac::airplane, dt::Float64, savepath::Bool = true)
 
   if(savepath)
     push!(ac.path,deepcopy(ac.posNED))
+    push!(ac.sLocHist, ac.navDest[1])
   end
   #push!(ac.psiHist,ac.psi)
   #push!(ac.rollHist,ac.roll)
@@ -357,7 +359,7 @@ function flyPattern!(ac::airplane)
 #################################################
   #Check if we are ready to transition based
   #on the last navigation step. If so act accordingly
-  if(ac.readyToTransition)
+  if(ac.readyToTransition || ac.atcCommand == :GO)
     transition(ac)
   end
 
@@ -475,6 +477,7 @@ function simulate!(acList::Vector{airplane}, Tend, stopEarly = false, runATC::Sy
     for idx in 1:length(acList)
       noPendingCommand = noPendingCommand && (acList[idx].atcCommand == :∅)
     end
+    noPendingCommand = true
 
     readyForCommand = false
     if(noPendingCommand) #Someone is busy, don't send a new command
@@ -494,7 +497,7 @@ function simulate!(acList::Vector{airplane}, Tend, stopEarly = false, runATC::Sy
     if(readyForCommand)
       act = runAutoATC(acList, runATC, policyFun)
       #If we have an action to issue, pass it along
-      if act != g_noaction
+      if act != g_noaction && acList[act[1]].atcCommand == :∅
         acList[act[1]].atcCommand = act[2]
         alertCount += 1
       end
