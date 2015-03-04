@@ -63,23 +63,46 @@ const g_allstates_string = (ASCIIString)[string(a) for a in g_allstates]
 
 #Add transition times for each state in minutes
 teaTime = (Symbol => Float64)[]
-teaTime[:T] = 5
-teaTime[:R] = 0.5
-teaTime[:GO] = 1
 
-teaTime[:U1] = 1; teaTime[:U2] = 2
-
-teaTime[:LX1] = teaTime[:LX2] = 0.5
-
-teaTime[:LD0] = 2
-teaTime[:LD1] = teaTime[:LD2] = 1.5
-teaTime[:LD3] = 2
-
-teaTime[:LB1] = teaTime[:LB2] = 0.5
-
-teaTime[:F0] = 2; teaTime[:F1] = 1
-teaTime[:LDep] = 10; teaTime[:LArr] = 2
-
+teaTime[:T]=230.26
+teaTime[:R]=353.32
+teaTime[:U1]=308.84
+teaTime[:LX1]=138.13
+teaTime[:LD1]=371.45
+teaTime[:LD2]=332.55
+teaTime[:LB1]=135.06
+teaTime[:LX2]=136.00
+teaTime[:LD0]=166.75
+teaTime[:LD3]=227.07
+teaTime[:LB2]=127.36
+teaTime[:F0]=185.88
+teaTime[:F1]=301.81
+teaTime[:GO]=59.50
+teaTime[:U2]=181.29
+teaTime[:LDep]=588.25
+teaTime[:LArr]=612.50
+# 
+# teaTime[:T] = 5
+# teaTime[:R] = 0.5
+# teaTime[:GO] = 1
+# 
+# teaTime[:U1] = 1; teaTime[:U2] = 2
+# 
+# teaTime[:LX1] = teaTime[:LX2] = 0.5
+# 
+# teaTime[:LD0] = 2
+# teaTime[:LD1] = teaTime[:LD2] = 1.5
+# teaTime[:LD3] = 2
+# 
+# teaTime[:LB1] = teaTime[:LB2] = 0.5
+# 
+# teaTime[:F0] = 2; teaTime[:F1] = 1
+# teaTime[:LDep] = 10; teaTime[:LArr] = 2
+# 
+# #Temporary hack, set all of them to the same value...
+# for k in keys(teaTime)
+#     teaTime[k] = 0.1;
+# end
 
 function symmetrize!(halfDict, symFun)
 for astr in g_allstates_string
@@ -187,7 +210,7 @@ function probFromTo(from::Symbol, to::Symbol, receivedATC::Bool, atcDesired::Sym
         elseif !receivedATC || !(atcDesired in allNext)
             #except for taxi (aircraft will not take-off unless told so)
             #All other states are equally likely
-            if(from != :T)
+            if(true)#from != :T)
               p = 1./ Nnext
             #i.e. from Taxi -> Taxi without ATC commands
             elseif (to == :T)
