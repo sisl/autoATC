@@ -91,7 +91,7 @@ function X2LIDX(X::XType)
   return sub2ind(g_XDIMS, reverse(X)...)
 end
 function S2LIDX(S::SType)
-  return x2LIDX(S2X(S))
+  return X2LIDX(S2X(S))
 end
 
 function LIDX2X(lidx::Int64)
@@ -220,8 +220,7 @@ function QVeval_old(X::XType, action::typeof(g_nullAct), Qtjoint, Vcomp::Vector{
   return (qVsum + r(X, action)) / (β + qx)
 end
 
-function QVeval(X::XType, action::typeof(g_nullAct), Qlist, Vcomp::Vector{Float64}, γ::Float64)
-  β = 1./ γ
+function QVeval(X::XType, action::typeof(g_nullAct), Qlist, Vcomp::Vector{Float64}, β::Float64)
 
   (idx, act) = action;
 
@@ -255,7 +254,7 @@ function QVeval(X::XType, action::typeof(g_nullAct), Qlist, Vcomp::Vector{Float6
     qVsum += Qval * Vcomp[V_CIDX]
   end
 
-  return (qVsum + r(X, action)) / (β + qx)
+  return (qVsum ) / (β + qx) + r(X, action)
 
 end
 #############################################
@@ -296,7 +295,7 @@ function r(X::XType, a::typeof(g_nullAct))
   return Reward(X2S(X), a, β_cost)
 end
 
-function gaussSeidel!(Qlist, Vcomp::Vector{Float64}, γ::Float64; maxIters=100)
+function gaussSeidel!(Qlist, Vcomp::Vector{Float64}, β::Float64; maxIters=100)
 
   Aopt = (typeof(g_nullAct))[g_nullAct for i in 1:g_nXcomp];
 
@@ -307,7 +306,7 @@ function gaussSeidel!(Qlist, Vcomp::Vector{Float64}, γ::Float64; maxIters=100)
         aopt = g_nullAct
         Qmax = -Inf
         for a in legalActions(X2S(X))
-            Qa = QVeval(X, a, Qlist, Vcomp, γ)
+            Qa = QVeval(X, a, Qlist, Vcomp, β)
             if Qa > Qmax
                 Qmax = Qa
                 aopt = a
