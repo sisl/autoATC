@@ -51,6 +51,53 @@ for k in 1:size(normalTrans, 1)
   end
   allstates = unique([allstates, normalTrans[k]])
 end
+
+#######################################################
+#Add phases
+#######################################################
+
+#for now we will assume that we will use a fixed number of phases!
+#Note that this will introduce (nPhases-1) as the last phase is 
+#assumed to be the state itself.
+#We also assume that the actions are given at the last phase.
+const nPhases = 4; #must be >= 1
+phaseFreeStates = [:R, :LDep, :LArr, :RDep, :RArr]
+*(a::Symbol, b::Symbol) = symbol(string(a, b))
+function appendPhase(s::Symbol, k::Int64)
+    if s in phaseFreeStates || k == nPhases
+        return s
+    else
+        return symbol(string("ϕ",k,"_", s))
+    end
+end
+function phaseFree(s::Symbol)
+    st = string(s)
+    if st[1] == 'ϕ'
+        return symbol(st[5:end]) #This is going to bite you in the future!
+    else
+        return s
+    end
+end
+if(nPhases > 1)
+    for s in keys(NextStates)
+        map!(s -> appendPhase(s,1), NextStates[s]) 
+    end
+    for s in allstates
+        if !( s in phaseFreeStates)
+            #Insert nPhases chain. Note that appendPhase(s,i+1)
+            #returns s!
+            for i in 1:(nPhases-1)
+                NextStates[appendPhase(s,i)] = [appendPhase(s,i+1)]
+            end
+        end 
+    end
+end
+allstates = unique([allstates, collect(keys(NextStates))])
+#######################################################
+
+
+
+
 sn = (Symbol => Int64)[]
 for i in 1:length(allstates)
     sn[allstates[i]] = i
@@ -58,7 +105,7 @@ end
 
 const g_allstates = allstates;
 const g_sn = sn;
-const g_allstates_string = (ASCIIString)[string(a) for a in g_allstates]
+const g_allstates_string = (UTF8String)[string(a) for a in g_allstates]
 
 
 #Add transition times for each state in minutes
@@ -81,6 +128,19 @@ teaTime[:GO]=59.50
 teaTime[:U2]=181.29
 teaTime[:LDep]=588.25
 teaTime[:LArr]=612.50
+
+#Grab keys before we start inserting things
+teaKeys = collect(keys(teaTime))
+for s in teaKeys
+    if !(s in phaseFreeStates)
+        l = (teaTime[s] / nPhases);
+        #Note that this will also modify teaTime[s]
+        for i in 1:nPhases
+            teaTime[appendPhase(s,i)] = l
+        end 
+    end
+end
+
 # 
 # teaTime[:T] = 5
 # teaTime[:R] = 0.5
@@ -105,16 +165,17 @@ teaTime[:LArr]=612.50
 # end
 
 function symmetrize!(halfDict, symFun)
-for astr in g_allstates_string
-  if(astr[1] == 'R')
-    astr_l = replace(astr, 'R', 'L')
-    a = symbol(astr)
-    b = symbol(astr_l)
-    if b in keys(halfDict)
-      halfDict[a] = symFun(halfDict[b])
+    for s in g_allstates   
+      if(string(phaseFree(s))[1] == 'R')
+        astr = string(s)
+        astr_l = replace(astr, 'R', 'L')
+        a = symbol(astr)
+        b = symbol(astr_l)
+        if b in keys(halfDict)
+          halfDict[a] = symFun(halfDict[b])
+        end
+      end
     end
-  end
-end
 end
 
 symmetrize!(teaTime, x -> x)
