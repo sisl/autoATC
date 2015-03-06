@@ -177,50 +177,7 @@ function findn_rows{Tv,Ti}(S::SparseMatrixCSC{Tv,Ti}, colIdx::Integer)
     return (S.rowval[idx] , S.nzval[idx])
 end
 
-
-#Old one which required all of the Qt matrices to be precomputed!
-function QVeval_old(X::XType, action::typeof(g_nullAct), Qtjoint, Vcomp::Vector{Float64}, γ::Float64)
-  β = 1./ γ
-
-  (idx, act) = action;
-
-  #First, re-order the states so that we are addressing the right instance
-  Xo = swap(X, 1, idx)
-
-  #Find the long index
-  X_lidx  = X2LIDX(Xo)
-  X_cidx = X2CIDX(Xo)
-
-  #Note the +1, we assume that act == 0 (from the null action) is a valid action!
-  #i.e. all the Qtjoint arrays are offset by 1
-  Qt = Qtjoint[act+1] #TODO: Make sure this is a reference and NOT a copy!
-
-
-  #These are the rows of Qt for this column that are non-zero
-  #which means these are the columns of Q for this
-  #state (X).
-  Qsparse_indices = Qt.colptr[X_lidx] : (Qt.colptr[X_lidx+1]-1)
-
-  #Diagonal element is negative by construction
-  #But q(x) is defined as the positive value
-  qx = -Qt[X_lidx,X_lidx]
-
-  #q(x) is not supposed to be part of the summation
-  #we will later add Qt[si,si]*V[si] so starting with -Qt[si,si] will cancel it out
-  qVsum =  qx * Vcomp[X_cidx]
-
-  for Qsparse_idx in Qsparse_indices
-    Qval = Qt.nzval[Qsparse_idx]
-    V_LIDX = Qt.rowval[Qsparse_idx]
-    V_CIDX = LIDX2CIDX(V_LIDX)
-
-    qVsum += Qval * Vcomp[V_CIDX]
-  end
-
-  return (qVsum + r(X, action)) / (β + qx)
-end
-
-function QVeval(X::XType, action::typeof(g_nullAct), Qlist, Vcomp::Vector{Float64}, β::Float64)
+function QVeval(X::XType, action::typeof(g_nullAct), Qt_list, Vcomp::Vector{Float64}, β::Float64)
 
   (idx, act) = action;
 
@@ -232,7 +189,7 @@ function QVeval(X::XType, action::typeof(g_nullAct), Qlist, Vcomp::Vector{Float6
   X_cidx = X2CIDX(Xo)
 
   #get the relevant Q row
-  Qt = Qi(Qlist[act+1], Qlist[1], g_nVehicles-1, X_lidx)
+  Qt = Qti_ABt(Qt_list[act+1], Qt_list[1], g_nVehicles-1, X_lidx)
 
   #These are the entries of the transition which are non
   #zero. Note that Qt is a column vector
@@ -295,7 +252,7 @@ function r(X::XType, a::typeof(g_nullAct))
   return Reward(X2S(X), a, β_cost)
 end
 
-function gaussSeidel!(Qlist, Vcomp::Vector{Float64}, β::Float64; maxIters=100)
+function gaussSeidel!(Qt_list, Vcomp::Vector{Float64}, β::Float64; maxIters=100)
 
   Aopt = (typeof(g_nullAct))[g_nullAct for i in 1:g_nXcomp];
 
@@ -306,7 +263,7 @@ function gaussSeidel!(Qlist, Vcomp::Vector{Float64}, β::Float64; maxIters=100)
         aopt = g_nullAct
         Qmax = -Inf
         for a in legalActions(X2S(X))
-            Qa = QVeval(X, a, Qlist, Vcomp, β)
+            Qa = QVeval(X, a, Qt_list, Vcomp, β)
             if Qa > Qmax
                 Qmax = Qa
                 aopt = a

@@ -57,10 +57,10 @@ end
 #######################################################
 
 #for now we will assume that we will use a fixed number of phases!
-#Note that this will introduce (nPhases-1) as the last phase is 
+#Note that this will introduce (nPhases-1) as the last phase is
 #assumed to be the state itself.
 #We also assume that the actions are given at the last phase.
-const nPhases = 4; #must be >= 1
+const nPhases = 1; #must be >= 1
 phaseFreeStates = [:R, :LDep, :LArr, :RDep, :RArr]
 *(a::Symbol, b::Symbol) = symbol(string(a, b))
 function appendPhase(s::Symbol, k::Int64)
@@ -69,6 +69,10 @@ function appendPhase(s::Symbol, k::Int64)
     else
         return symbol(string("ϕ",k,"_", s))
     end
+end
+
+function phaseState(s::Symbol)
+    return string(s)[1] == 'ϕ'
 end
 function phaseFree(s::Symbol)
     st = string(s)
@@ -80,7 +84,7 @@ function phaseFree(s::Symbol)
 end
 if(nPhases > 1)
     for s in keys(NextStates)
-        map!(s -> appendPhase(s,1), NextStates[s]) 
+        map!(s -> appendPhase(s,1), NextStates[s])
     end
     for s in allstates
         if !( s in phaseFreeStates)
@@ -89,7 +93,7 @@ if(nPhases > 1)
             for i in 1:(nPhases-1)
                 NextStates[appendPhase(s,i)] = [appendPhase(s,i+1)]
             end
-        end 
+        end
     end
 end
 allstates = unique([allstates, collect(keys(NextStates))])
@@ -137,35 +141,35 @@ for s in teaKeys
         #Note that this will also modify teaTime[s]
         for i in 1:nPhases
             teaTime[appendPhase(s,i)] = l
-        end 
+        end
     end
 end
 
-# 
+#
 # teaTime[:T] = 5
 # teaTime[:R] = 0.5
 # teaTime[:GO] = 1
-# 
+#
 # teaTime[:U1] = 1; teaTime[:U2] = 2
-# 
+#
 # teaTime[:LX1] = teaTime[:LX2] = 0.5
-# 
+#
 # teaTime[:LD0] = 2
 # teaTime[:LD1] = teaTime[:LD2] = 1.5
 # teaTime[:LD3] = 2
-# 
+#
 # teaTime[:LB1] = teaTime[:LB2] = 0.5
-# 
+#
 # teaTime[:F0] = 2; teaTime[:F1] = 1
 # teaTime[:LDep] = 10; teaTime[:LArr] = 2
-# 
+#
 # #Temporary hack, set all of them to the same value...
 # for k in keys(teaTime)
 #     teaTime[k] = 0.1;
 # end
 
 function symmetrize!(halfDict, symFun)
-    for s in g_allstates   
+    for s in g_allstates
       if(string(phaseFree(s))[1] == 'R')
         astr = string(s)
         astr_l = replace(astr, 'R', 'L')
@@ -300,6 +304,10 @@ function validActions(S)
 #############################################
   A = [g_noaction]; sizehint(A, 10);
   for (i, s) in enumerate(S)
+    #Temp hack, don't issue commands when any aircraft is in a phase!
+    if phaseState(s)
+        return [g_noaction]
+    end
     #Can't tell departing aircrafts what to do
     if !(s in [:LDep, :RDep])
       snext = NextStates[s]

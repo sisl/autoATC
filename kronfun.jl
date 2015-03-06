@@ -85,8 +85,8 @@ function eaKronv!(a,n,v)
 end
 ###############################
 #This is the heart of most of it
-function Cb(B,K,b)
-    n = size(B,1);
+function Cbt(Bt,K,b)
+    n = size(Bt,1);
     n_K = n^K;
     n_Km1 = n^(K-1);
 
@@ -98,8 +98,13 @@ function Cb(B,K,b)
         q = n^(K-u)
         bp = sub2ind((p,q), reverse(ind2sub((q,p),b))...)
         (d,c) = ind2sub((n,n_Km1), bp)
-        #res = kron(ec, B[d,:]')
-        res_u = B[d,:]'
+        #TODO: Optimize this part out.
+        #Maybe pre allocate res_u or at the very least reuse it?
+        res_u = spzeros(n,1);
+        for i in Bt.colptr[d]:(Bt.colptr[d+1]-1)
+          res_u[Bt.rowval[i]] = Bt.nzval[i]
+        end
+        #res_u = B[d,:]'
         eaKronv!(c, n_Km1, res_u)
         #Last step is to permute
         Ppq_v!(q,p,res_u)
@@ -112,17 +117,20 @@ end
 ###############################
 #This is the function that puts it all together!
 
-function Qi(A,B,K,i)
-    n = size(A,1)
-    assert(n == size(A,2)) #enforce squareness
-    assert(size(A) == size(B)) #only working with same size matrices
+function Qti(A,B,K,i)
+    return Qi_ABt(A',B',K,i)
+end
+function Qti_ABt(At,Bt,K,i)
+    n = size(At,1)
+    assert(n == size(At,2)) #enforce squareness
+    assert(size(At) == size(Bt)) #only working with same size matrices
 
     n_K = n^K;
     (b, a) = ind2sub((n_K , n), i);
 
-    res = Cb(B,K,b)
+    res = Cbt(Bt,K,b)
     eaKronv!(a,n,res)
-    res = res + kron(A[a,:]', ev(b,n_K))
+    res = res + kron(At[:,a], ev(b,n_K))
 
     return  res
 end
@@ -130,7 +138,7 @@ end
 #This is the lazy version
 #pretty slow, and will run out
 #out of memory for large n's
-function Qi_lazy(A,B,K,i)
+function Qti_lazy(A,B,K,i)
     Q = A;
     for k in 1:K
        Q = kronSum(Q,B)
