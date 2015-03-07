@@ -68,13 +68,13 @@ end
 ###############################
 #kron(ea,v)
 ###############################
-function eaKronv(a,n,v)
-    m = length(v)
-    res = spzeros(n*m,1)
-    idx = m*(a-1) + (1:m)
-    res[idx] = v
-    return res
-end
+# function eaKronv(a,n,v)
+#     m = length(v)
+#     res = spzeros(n*m,1)
+#     idx = m*(a-1) + (1:m)
+#     res[idx] = v
+#     return res
+# end
 #In place version.
 function eaKronv!(a,n,v)
     offset = v.m*(a-1)
@@ -83,6 +83,25 @@ function eaKronv!(a,n,v)
         v.rowval[i] =  offset + v.rowval[i]
     end
 end
+
+###############################
+#kron(v,ea)
+###############################
+# function vKronea(v,a,n)
+#     m = length(v)
+#     res = spzeros(n*m,1)
+#     idx =  a:n:(n*m)
+#     res[idx] = v
+#     return res
+# end
+#In place version.
+function vKronea!(v,a,n)
+    v.m = v.m * n;
+    for i in v.colptr[1]:(v.colptr[2]-1)
+        v.rowval[i] =  a + (v.rowval[i]-1)*n
+    end
+end
+
 ###############################
 #This is the heart of most of it
 function Cbt(Bt,K,b)
@@ -128,11 +147,14 @@ function Qti_ABt(At,Bt,K,i)
     n_K = n^K;
     (b, a) = ind2sub((n_K , n), i);
 
+    resA = At[:,a];
+    vKronea(resA,b,n_K)
+
     res = Cbt(Bt,K,b)
     eaKronv!(a,n,res)
-    res = res + kron(At[:,a], ev(b,n_K))
+    res = res + resA
 
-    return  res
+    return res
 end
 
 #This is the lazy version
