@@ -364,6 +364,17 @@ for s in [:LDep, :RDep]
     xDep[cnt] = g_sn[sDep[cnt]]
   end
 end
+const xTaxi = g_sn[:T]
+const xSafe = Array(Int64, 5 * nPhases)
+const sSafe = Array(Symbol, 5 * nPhases)
+cnt = 0
+for s in [:LDep, :RDep, :LArr, :RArr, :T]
+  for k in 1:nPhases
+    cnt += 1
+    sSafe[cnt] = appendPhase(s,k)
+    xSafe[cnt] = g_sn[sSafe[cnt]]
+  end
+end
 
 function validCompactActions(S)
   actions = validActions(S)

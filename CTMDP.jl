@@ -229,8 +229,30 @@ function NcolNtaxi(s::Vector{Symbol})
 
   return [Nc - Ncu, length(inTaxi)]
 end
+
+function NcolNtaxi(X::XType)
+  Nc = 0
+  Nt = 0
+  for i in 1:length(X)
+    if X[i] in xTaxi
+      Nt += 1
+    end
+    if X[i] in xSafe
+      continue
+    end
+    for j in (i+1):length(X)
+      if X[j] == X[i]
+        Nc += 1
+      end
+    end
+  end
+  return [Nc, Nt]
+end
 #############################################
 function Reward(s::Vector{Symbol}, a::typeof(g_nullAct), β::Float64)
+  return Reward(S2X(S), a, β)
+end
+function Reward(X::XType, a::typeof(g_nullAct), β::Float64)
 #############################################
     r = 0.
 
@@ -244,14 +266,14 @@ function Reward(s::Vector{Symbol}, a::typeof(g_nullAct), β::Float64)
         r += β * collisionCost;
     end
 
-    (ncol, ntaxi) = NcolNtaxi(s)
+    (ncol, ntaxi) = NcolNtaxi(X)
     r += ncol * collisionCost + ntaxi * taxiCost;
 
     return r;
 end
 
 function r(X::XType, a::typeof(g_nullAct))
-  return Reward(X2S(X), a, β_cost)
+  return Reward(X, a, β_cost)
 end
 
 function gaussSeidel!(Qt_list, Vcomp::Vector{Float64}, β::Float64; maxIters::Int64=100, maxTime::Float64 = Inf)
