@@ -61,6 +61,8 @@ const g_Xcomp = XType[S2X(s) for s in g_Scomp]
 const g_nScomp = length(g_Scomp); const g_nXcomp = g_nScomp;
 const g_nSlong  = g_nNodes^g_nVehicles; const g_nXlong = g_nSlong;
 
+const g_nCompActs = maxNextStates * g_nVehicles + 1
+
 #Going from compact indices to states
 function CIDX2S(cidx::Int64)
   return g_Scomp[cidx]
@@ -252,9 +254,12 @@ function r(X::XType, a::typeof(g_nullAct))
   return Reward(X2S(X), a, β_cost)
 end
 
-function gaussSeidel!(Qt_list, Vcomp::Vector{Float64}, β::Float64; maxIters=100)
+function gaussSeidel!(Qt_list, Vcomp::Vector{Float64}, β::Float64; maxIters::Int64=100, maxTime::Float64 = Inf)
 
   Aopt = (typeof(g_nullAct))[g_nullAct for i in 1:g_nXcomp];
+
+  compActs = Array(typeof(g_nullAct), g_nCompActs)
+
 
   start = time()
   @time for iter in 1:maxIters
@@ -262,11 +267,13 @@ function gaussSeidel!(Qt_list, Vcomp::Vector{Float64}, β::Float64; maxIters=100
     for X in g_Xcomp
         aopt = g_nullAct
         Qmax = -Inf
-        for a in legalActions(X2S(X))
-            Qa = QVeval(X, a, Qt_list, Vcomp, β)
+        #Populate compact actions for this Xtate
+        nActs = validCompActions!(compActs, X)
+        for aIdx in 1:nActs  #in legalActions(X2S(X))
+            Qa = QVeval(X, compActs[aIdx], Qt_list, Vcomp, β)
             if Qa > Qmax
                 Qmax = Qa
-                aopt = a
+                aopt = compActs[aIdx]
             end
         end
 
@@ -275,13 +282,22 @@ function gaussSeidel!(Qt_list, Vcomp::Vector{Float64}, β::Float64; maxIters=100
         maxVchange = max(maxVchange, abs(Vcomp[X_cidx] - Qmax))
         Vcomp[X_cidx] = Qmax
         Aopt[X_cidx] = aopt
+
+        #TODO: remove this
+        if maxTime < Inf
+          elapsedTime = time() - start
+          if elapsedTime > maxTime
+            break
+          end
+        end
     end
 
-    if(maxVchange < 1 || iter==maxIters)
+    elapsedTime = time() - start
+    if(maxVchange < 1 || iter==maxIters || elapsedTime > maxTime)
         @printf("Stopping after %i iterations (maxVchange = %.2f)\n", iter, maxVchange)
         break
     elseif mod(iter, 5) == 0
-        @printf("At iteration #%i (%.2f sec)\n", iter, time() - start)
+        @printf("At iteration #%i (%.2f sec)\n", iter, elapsedTime)
     end
   end
 

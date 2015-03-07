@@ -148,7 +148,7 @@ function Qti_ABt(At,Bt,K,i)
     (b, a) = ind2sub((n_K , n), i);
 
     resA = At[:,a];
-    vKronea(resA,b,n_K)
+    vKronea!(resA,b,n_K)
 
     res = Cbt(Bt,K,b)
     eaKronv!(a,n,res)

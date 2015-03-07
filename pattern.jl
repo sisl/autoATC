@@ -25,7 +25,8 @@ const g_nullAct = [0,0]
 
 #############################################
 #Set up states
-NextStates = (Symbol => Array{Symbol, 1})[]
+const NextStates = (Symbol => Array{Symbol, 1})[]
+
 #############################################
 
 function addConn!(d, f, t)
@@ -60,7 +61,7 @@ end
 #Note that this will introduce (nPhases-1) as the last phase is
 #assumed to be the state itself.
 #We also assume that the actions are given at the last phase.
-const nPhases = 1; #must be >= 1
+const nPhases = 2; #must be >= 1
 phaseFreeStates = [:R, :LDep, :LArr, :RDep, :RArr]
 *(a::Symbol, b::Symbol) = symbol(string(a, b))
 function appendPhase(s::Symbol, k::Int64)
@@ -99,9 +100,6 @@ end
 allstates = unique([allstates, collect(keys(NextStates))])
 #######################################################
 
-
-
-
 sn = (Symbol => Int64)[]
 for i in 1:length(allstates)
     sn[allstates[i]] = i
@@ -111,6 +109,13 @@ const g_allstates = allstates;
 const g_sn = sn;
 const g_allstates_string = (UTF8String)[string(a) for a in g_allstates]
 
+const NextXtates = Array(Vector{Int64}, length(g_allstates))
+maxNextStates = 0
+for x in 1:length(g_allstates)
+  s = g_allstates[x]
+  NextXtates[x] = [g_sn[sp] for sp in NextStates[s]]
+  maxNextStates = max(maxNextStates, length(NextXtates[x]))
+end
 
 #Add transition times for each state in minutes
 teaTime = (Symbol => Float64)[]
@@ -304,10 +309,6 @@ function validActions(S)
 #############################################
   A = [g_noaction]; sizehint(A, 10);
   for (i, s) in enumerate(S)
-    #Temp hack, don't issue commands when any aircraft is in a phase!
-    if phaseState(s)
-        return [g_noaction]
-    end
     #Can't tell departing aircrafts what to do
     if !(s in [:LDep, :RDep])
       snext = NextStates[s]
@@ -350,8 +351,20 @@ function compAct2extAct(act::typeof(g_nullAct), S)
   return eAct
 end
 
+#TODO: Optimize this. Low hanging fruit!!?!!
 #Could probably rewrite this to not have to call everything
 #else and instead just use the number of next available states!
+const xDep = Array(Int64, 2 * nPhases)
+const sDep = Array(Symbol, 2 * nPhases)
+cnt = 0
+for s in [:LDep, :RDep]
+  for k in 1:nPhases
+    cnt += 1
+    sDep[cnt] = appendPhase(s,k)
+    xDep[cnt] = g_sn[sDep[cnt]]
+  end
+end
+
 function validCompactActions(S)
   actions = validActions(S)
   compActions = Array(typeof(g_nullAct),length(actions),1)
@@ -359,6 +372,30 @@ function validCompactActions(S)
     compActions[idx] = extAct2compAct(act, S)
   end
   return compActions
+end
+
+function validCompActions!(compActs::Vector{typeof(g_nullAct)}, X::Vector{Int64})
+  nActs = 0
+
+  nActs += 1
+  compActs[nActs] = g_nullAct
+  for i in 1:length(X)
+    x = X[i]
+    if x in xDep #Departure state, can't tell it what to do
+      continue
+    end
+    nX = length(NextXtates[x])
+    if nX > 1
+      for j in 1:nX
+        if NextXtates[x][j] in xDep #Can't tell aircraft to depart
+          continue
+        end
+        nActs += 1
+        compActs[nActs] = [i, j]
+      end
+    end
+  end
+  return nActs
 end
 #############################################
 function Transition(S::Array{Symbol,1}, a::typeof(g_noaction), Snext::Array{Symbol,1})
