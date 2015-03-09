@@ -88,27 +88,23 @@ end
 const g_XDIMS = tuple((g_nNodes*ones(Int64, g_nVehicles))...)
 
 
-function Xsub2ind(X::XType)
-    index = X[1]
+function X2LIDX(X::XType)
+    #Note the reverse due to sub2ind using column major numbering whereas
+    #the kronecker math uses a row major numbering
+    index = X[g_nVehicles]
     stride = 1
-    for k=2:g_nVehicles
+    for k = (g_nVehicles-1):-1:1
         stride = stride * g_nNodes
         index += (X[k]-1) * stride
     end
     return index
 end
 
-function X2LIDX(X::XType)
-  #Note the reverse due to sub2ind using different convention than
-  #what the kronecker sum results in!
-  return Xsub2ind(reverse(X))
-end
-
 #same as above, but takes permutation into account
 function X2LIDX(X::XType, perm::XType)
     index = X[perm[g_nVehicles]]
     stride = 1
-    for k= (g_nVehicles-1):-1:1
+    for k = (g_nVehicles-1):-1:1
         stride = stride * g_nNodes
         index += (X[perm[k]] -1) * stride
     end
