@@ -147,6 +147,7 @@ function Cbt!(Bt,K,b, Cb_res, res_u, res_u_rowval, res_u_nzval)
     Cb_res.m = n_K    
     Cb_res.colptr[1] = Cb_res.colptr[2] = 1
     
+    #TODO: find a way to reuse the rowval and nzval arrays!
     #Ideally the rowval and value vector should get reused
     #But for now they'll get reallocated everytime ...
     Cb_res.rowval =  Array(Int64, 0)
