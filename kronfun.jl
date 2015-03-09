@@ -152,10 +152,8 @@ function Cbt(Bt,K,b)
         #Last step is to permute
         Ppq_v!(q,p,res_u)
         #Cumulative sum into accumulator
-        Cb_res = Cb_res + res_u
-        #sparseVectorPlusEq!(Cb_res, res_u, n_K)
-        #Unfortunately sparseVectorPlusEq doesn't help as much, so just using
-        #the built-in plus function...
+        #Cb_res = Cb_res + res_u
+        sparseVectorPlusEq!(Cb_res, res_u, n_K)
     end
 
     return Cb_res
