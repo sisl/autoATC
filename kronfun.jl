@@ -33,17 +33,22 @@ function E(i,j,m,n)
 end
 
 ###############################
+function pqlqp(p,q,l)
+#sub2ind((p,q), reverse(ind2sub((q,p),l))...)
+#Above allocates memory and needs to reverse. This one liner is faster
+# rem(l-1,q) * p + div(l-1,q) + 1
+#The one below is even faster (4x compared to original!)
+    (d,r) = divrem(l-1,q)
+    return r * p + d + 1
+end
+
 function Ppq_v!(p,q, v)
     assert(issparse(v) && size(v,2)==1)
     #equivalent to v = Pcrazy(p,q) * v
     for i in v.colptr[1]:(v.colptr[2]-1)
-        l = v.rowval[i]
+        #l = v.rowval[i]
         #k = sub2ind((p,q), reverse(ind2sub((q,p),l))...)
-        #Above allocates memory and needs to reverse. This one liner is faster
-        #v.rowval[i] = rem(l-1,q) * p + div(l-1,q) + 1
-        #The one below is even faster (4x compared to original!) 
-        (d,r) = divrem(l-1,q)
-        v.rowval[i] =  r * p + d + 1
+        v.rowval[i] =  pqlqp(p,q,v.rowval[i]) 
     end
     return v
 end
@@ -106,7 +111,15 @@ function vKronea!(v,a,n)
     end
 end
 
+function AaKronebSum!(res, A, a,    b,n)
+    res.m = res.m * n;
+    for i in A.colptr[a]:(A.colptr[a+1]-1)
+        row = b + (A.rowval[i]-1)*n
+        res[row] += A.nzval[i]
+    end
+end
 
+###############################
 function sparseVectorPlusEq!(u, v, n)
     #Add the B values in to A
     for i in v.colptr[1]:(v.colptr[2]-1) 
@@ -121,7 +134,8 @@ end
 #having to allocate/free them over and over again! 
 #res_u_rowval = Array(Int64, n)
 #res_u_nzval = Array(Float64, n)
-function Cbt(Bt,K,b, res_u_rowval, res_u_nzval)
+#res_u = spzeros(n,1) #Note that we will abuse this vector :)
+function Cbt(Bt,K,b, res_u, res_u_rowval, res_u_nzval)
     n = size(Bt,1);
     n_K = n^K;
     n_Km1 = n^(K-1);
@@ -129,13 +143,13 @@ function Cbt(Bt,K,b, res_u_rowval, res_u_nzval)
     #Compute Cb
     Cb_res = spzeros(n_K,1);
 
-    #Note that we will abuse this vector :)
-    res_u = spzeros(n, 1)
 
     for u in 0:(K-1)
         p = n^u;
         q = n^(K-u)
-        bp = sub2ind((p,q), reverse(ind2sub((q,p),b))...)
+        #k = sub2ind((p,q), reverse(ind2sub((q,p),l))...)
+        #bp = sub2ind((p,q), reverse(ind2sub((q,p),b))...)
+        bp = pqlqp(p,q,b)
         (d,c) = ind2sub((n,n_Km1), bp)
         
         #reisze res_u and populate it
@@ -160,11 +174,13 @@ function Cbt(Bt,K,b, res_u_rowval, res_u_nzval)
 
     return Cb_res
 end
+
+
 ###############################
 #This is the function that puts it all together!
 #res_u should be passed in to avoid 
 #having to allocate/free them over and over again! 
-function Qti_ABt(At,Bt,K,i, res_u_rowval, res_u_nzval)
+function Qti_ABt(At,Bt,K,i, res_u, res_u_rowval, res_u_nzval)
     n = size(At,1)
     assert(n == size(At,2)) #enforce squareness
     assert(size(At) == size(Bt)) #only working with same size matrices
@@ -172,15 +188,17 @@ function Qti_ABt(At,Bt,K,i, res_u_rowval, res_u_nzval)
     n_K = n^K;
     (b, a) = ind2sub((n_K , n), i);
 
-    resA = At[:,a];
-    vKronea!(resA,b,n_K)
-
-    res = Cbt(Bt,K,b, res_u_rowval, res_u_nzval)
+    res = Cbt(Bt,K,b, res_u, res_u_rowval, res_u_nzval)
     eaKronv!(a,n,res)
     
-    res = res + resA
-    #sparseVectorPlusEq!(res, resA, n_K)
+    #resA = At[:,a];    
+    #vKronea!(resA,b,n_K)
+    AaKronebSum!(res, At, a, b, n_K)
 
+    
+    #println(resA.m, " ", resA.n, " ", res.m, " ", res.n)
+    #res = res + resA
+    #sparseVectorPlusEq!(res, resA, n_K)
 
     return res
 end
