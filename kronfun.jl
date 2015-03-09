@@ -135,14 +135,22 @@ end
 #res_u_rowval = Array(Int64, n)
 #res_u_nzval = Array(Float64, n)
 #res_u = spzeros(n,1) #Note that we will abuse this vector :)
-function Cbt(Bt,K,b, res_u, res_u_rowval, res_u_nzval)
+#Cb_res = spzeros(n_K,1); #This will get cleared
+function Cbt!(Bt,K,b, Cb_res, res_u, res_u_rowval, res_u_nzval)
     n = size(Bt,1);
     n_K = n^K;
     n_Km1 = n^(K-1);
 
-    #Compute Cb
-    Cb_res = spzeros(n_K,1);
-
+    #We'll reset the size of Cb
+    #and clear it
+    assert(Cb_res.n == 1)
+    Cb_res.m = n_K    
+    Cb_res.colptr[1] = Cb_res.colptr[2] = 1
+    
+    #Ideally the rowval and value vector should get reused
+    #But for now they'll get reallocated everytime ...
+    Cb_res.rowval =  Array(Int64, 0)
+    Cb_res.nzval  =  Array(Float64, 0)
 
     for u in 0:(K-1)
         p = n^u;
@@ -180,7 +188,7 @@ end
 #This is the function that puts it all together!
 #res_u should be passed in to avoid 
 #having to allocate/free them over and over again! 
-function Qti_ABt(At,Bt,K,i, res_u, res_u_rowval, res_u_nzval)
+function Qti_ABt(At,Bt,K,i, Cb_res, res_u, res_u_rowval, res_u_nzval)
     n = size(At,1)
     assert(n == size(At,2)) #enforce squareness
     assert(size(At) == size(Bt)) #only working with same size matrices
@@ -188,19 +196,19 @@ function Qti_ABt(At,Bt,K,i, res_u, res_u_rowval, res_u_nzval)
     n_K = n^K;
     (b, a) = ind2sub((n_K , n), i);
 
-    res = Cbt(Bt,K,b, res_u, res_u_rowval, res_u_nzval)
-    eaKronv!(a,n,res)
+    Cbt!(Bt,K,b, Cb_res, res_u, res_u_rowval, res_u_nzval)
+    eaKronv!(a,n,Cb_res)
     
     #resA = At[:,a];    
     #vKronea!(resA,b,n_K)
-    AaKronebSum!(res, At, a, b, n_K)
+    AaKronebSum!(Cb_res, At, a, b, n_K)
 
     
     #println(resA.m, " ", resA.n, " ", res.m, " ", res.n)
     #res = res + resA
     #sparseVectorPlusEq!(res, resA, n_K)
 
-    return res
+    return Cb_res
 end
 
 #This is the lazy version

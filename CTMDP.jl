@@ -201,7 +201,7 @@ end
 
 
 function QVeval(X::XType, action::typeof(g_nullAct), Qt_list, V::Vector{Float32}, β::Float64, V_is_compact::Bool, 
-                    res_u, res_u_rowval, res_u_nzval)
+                    Cb_res, res_u, res_u_rowval, res_u_nzval)
 
   (idx, act) = action;
 
@@ -216,7 +216,8 @@ function QVeval(X::XType, action::typeof(g_nullAct), Qt_list, V::Vector{Float32}
   
   
   #get the relevant Q row
-  Qt = Qti_ABt(Qt_list[act+1], Qt_list[1], g_nVehicles-1, X_lidx, res_u, res_u_rowval, res_u_nzval)
+  Qt = Qti_ABt(Qt_list[act+1], Qt_list[1], g_nVehicles-1, X_lidx, 
+                    Cb_res, res_u, res_u_rowval, res_u_nzval)
 
   #These are the entries of the transition which are non
   #zero. Note that Qt is a column vector
@@ -259,7 +260,7 @@ function NcolNtaxi(s::Vector{Symbol})
   return [Nc - Ncu, length(inTaxi)]
 end
 
-function NcolNtaxi(X::XType)
+function NcolNtaxi(X::XType, collisionCost::Float64, taxiCost::Float64)
   Nc = 0
   Nt = 0
   for i in 1:length(X)
@@ -275,7 +276,7 @@ function NcolNtaxi(X::XType)
       end
     end
   end
-  return [Nc, Nt]
+  return Nc*collisionCost +  Nt*taxiCost
 end
 #############################################
 function Reward(s::Vector{Symbol}, a::typeof(g_nullAct), β::Float64)
@@ -291,13 +292,15 @@ function Reward(X::XType, a::typeof(g_nullAct), β::Float64)
     taxiCost = -10.
 
     #Actions have a cost
-    if(a != g_nullAct)
+    if(a[1] != g_nullAct[1]) #assumes anything with a[1] == 0 is null
         r += β * collisionCost;
     end
 
-    (ncol, ntaxi) = NcolNtaxi(X)
-    r += ncol * collisionCost + ntaxi * taxiCost;
+    #(ncol, ntaxi) = NcolNtaxi(X, collisionCost, taxiCost)
+    #r += ncol * collisionCost + ntaxi * taxiCost;
 
+    r += NcolNtaxi(X, collisionCost, taxiCost)
+    
     return r;
 end
 
@@ -319,7 +322,9 @@ function gaussSeidel!(Qt_list, V::Vector{Float32}, β::Float64; maxIters::Int64=
   res_u = spzeros(n,1)
   res_u_rowval = Array(Int64, n)
   res_u_nzval = Array(Float64, n)
-
+  Cb_res = spzeros(n^(g_nVehicles-1),1); #n^K with K = nVehicles - 1
+  
+  
   start = time()
   @time for iter in 1:maxIters
     maxVchange = 0.
@@ -331,7 +336,8 @@ function gaussSeidel!(Qt_list, V::Vector{Float32}, β::Float64; maxIters::Int64=
         #Populate compact actions for this Xtate
         nActs = validCompActions!(compActs, X)
         for aIdx in 1:nActs  #in legalActions(X2S(X))
-            Qa = QVeval(X, compActs[aIdx], Qt_list, V, β, V_is_compact, res_u, res_u_rowval, res_u_nzval)
+            Qa = QVeval(X, compActs[aIdx], Qt_list, V, β, V_is_compact, 
+                Cb_res, res_u, res_u_rowval, res_u_nzval)
             if Qa > Qmax
                 Qmax = Qa
                 aopt = compActs[aIdx]
