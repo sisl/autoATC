@@ -203,7 +203,8 @@ function findn_rows{Tv,Ti}(S::SparseMatrixCSC{Tv,Ti}, colIdx::Integer)
     return (S.rowval[idx] , S.nzval[idx])
 end
 
-function QVeval(X::XType, action::typeof(g_nullAct), Qt_list, V::Vector{Float32}, β::Float64, V_is_compact::Bool)
+
+function QVeval(X::XType, action::typeof(g_nullAct), Qt_list, V::Vector{Float32}, β::Float64, V_is_compact::Bool, res_u_rowval, res_u_nzval)
 
   (idx, act) = action;
 
@@ -218,7 +219,7 @@ function QVeval(X::XType, action::typeof(g_nullAct), Qt_list, V::Vector{Float32}
   
   
   #get the relevant Q row
-  Qt = Qti_ABt(Qt_list[act+1], Qt_list[1], g_nVehicles-1, X_lidx)
+  Qt = Qti_ABt(Qt_list[act+1], Qt_list[1], g_nVehicles-1, X_lidx, res_u_rowval, res_u_nzval)
 
   #These are the entries of the transition which are non
   #zero. Note that Qt is a column vector
@@ -316,6 +317,10 @@ function gaussSeidel!(Qt_list, V::Vector{Float32}, β::Float64; maxIters::Int64=
   compActs = Array(typeof(g_nullAct), g_nCompActs)
 
   Xp_indices = collect(permutations(1:g_nVehicles))
+  
+  n = size(Qt_list[1],1)
+  res_u_rowval = Array(Int64, n)
+  res_u_nzval = Array(Float64, n)
 
   start = time()
   @time for iter in 1:maxIters
@@ -326,7 +331,7 @@ function gaussSeidel!(Qt_list, V::Vector{Float32}, β::Float64; maxIters::Int64=
         #Populate compact actions for this Xtate
         nActs = validCompActions!(compActs, X)
         for aIdx in 1:nActs  #in legalActions(X2S(X))
-            Qa = QVeval(X, compActs[aIdx], Qt_list, V, β, V_is_compact)
+            Qa = QVeval(X, compActs[aIdx], Qt_list, V, β, V_is_compact, res_u_rowval, res_u_nzval)
             if Qa > Qmax
                 Qmax = Qa
                 aopt = compActs[aIdx]

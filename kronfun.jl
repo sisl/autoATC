@@ -116,7 +116,12 @@ end
 
 ###############################
 #This is the heart of most of it
-function Cbt(Bt,K,b)
+#n should be a manageable size...
+#res_u should be passed in to avoid 
+#having to allocate/free them over and over again! 
+#res_u_rowval = Array(Int64, n)
+#res_u_nzval = Array(Float64, n)
+function Cbt(Bt,K,b, res_u_rowval, res_u_nzval)
     n = size(Bt,1);
     n_K = n^K;
     n_Km1 = n^(K-1);
@@ -124,12 +129,9 @@ function Cbt(Bt,K,b)
     #Compute Cb
     Cb_res = spzeros(n_K,1);
 
-    #Note that we will abuse this vector!
+    #Note that we will abuse this vector :)
     res_u = spzeros(n, 1)
-    #n should be a manageable size...
-    #might consider moving this out of this function though?
-    res_u_rowval = Array(Int64, n)
-    res_u_nzval = Array(Float64, n)
+
     for u in 0:(K-1)
         p = n^u;
         q = n^(K-u)
@@ -160,22 +162,20 @@ function Cbt(Bt,K,b)
 end
 ###############################
 #This is the function that puts it all together!
-
-function Qti(A,B,K,i)
-    return Qi_ABt(A',B',K,i)
-end
-function Qti_ABt(At,Bt,K,i)
+#res_u should be passed in to avoid 
+#having to allocate/free them over and over again! 
+function Qti_ABt(At,Bt,K,i, res_u_rowval, res_u_nzval)
     n = size(At,1)
     assert(n == size(At,2)) #enforce squareness
     assert(size(At) == size(Bt)) #only working with same size matrices
-
+    assert(length(res_u_rowval) == length(res_u_nzval) == n)
     n_K = n^K;
     (b, a) = ind2sub((n_K , n), i);
 
     resA = At[:,a];
     vKronea!(resA,b,n_K)
 
-    res = Cbt(Bt,K,b)
+    res = Cbt(Bt,K,b, res_u_rowval, res_u_nzval)
     eaKronv!(a,n,res)
     
     res = res + resA
@@ -188,11 +188,11 @@ end
 #This is the lazy version
 #pretty slow, and will run out
 #out of memory for large n's
-function Qti_lazy(A,B,K,i)
-    Q = A;
+function Qti_ABt_lazy(At,Bt,K,i)
+    Qt = At;
     for k in 1:K
-       Q = kronSum(Q,B)
+       Qt = kronSum(Qt,Bt)
     end
 
-    return Q[i,:]'
+    return Qt[:,i]
 end
