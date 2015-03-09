@@ -87,11 +87,35 @@ end
 
 const g_XDIMS = tuple((g_nNodes*ones(Int64, g_nVehicles))...)
 
+
+function Xsub2ind(X::XType)
+    index = X[1]
+    stride = 1
+    for k=2:g_nVehicles
+        stride = stride * g_nNodes
+        index += (X[k]-1) * stride
+    end
+    return index
+end
+
 function X2LIDX(X::XType)
   #Note the reverse due to sub2ind using different convention than
   #what the kronecker sum results in!
-  return sub2ind(g_XDIMS, reverse(X)...)
+  return Xsub2ind(reverse(X))
 end
+
+#same as above, but takes permutation into account
+function X2LIDX(X::XType, perm::XType)
+    index = X[perm[g_nVehicles]]
+    stride = 1
+    for k= (g_nVehicles-1):-1:1
+        stride = stride * g_nNodes
+        index += (X[perm[k]] -1) * stride
+    end
+    return index
+end
+
+
 function S2LIDX(S::SType)
   return X2LIDX(S2X(S))
 end
@@ -179,7 +203,7 @@ function findn_rows{Tv,Ti}(S::SparseMatrixCSC{Tv,Ti}, colIdx::Integer)
     return (S.rowval[idx] , S.nzval[idx])
 end
 
-function QVeval(X::XType, action::typeof(g_nullAct), Qt_list, Vcomp::Vector{Float64}, β::Float64)
+function QVeval(X::XType, action::typeof(g_nullAct), Qt_list, V::Vector{Float32}, β::Float64, V_is_compact::Bool)
 
   (idx, act) = action;
 
@@ -187,9 +211,12 @@ function QVeval(X::XType, action::typeof(g_nullAct), Qt_list, Vcomp::Vector{Floa
   Xo = swap(X, 1, idx)
 
   #Find the long index
-  X_lidx  = X2LIDX(Xo)
-  X_cidx = X2CIDX(Xo)
-
+  X_cidx = X_lidx  = X2LIDX(Xo)
+  if(V_is_compact)
+    X_cidx = X2CIDX(Xo)
+  end 
+  
+  
   #get the relevant Q row
   Qt = Qti_ABt(Qt_list[act+1], Qt_list[1], g_nVehicles-1, X_lidx)
 
@@ -203,19 +230,23 @@ function QVeval(X::XType, action::typeof(g_nullAct), Qt_list, Vcomp::Vector{Floa
 
   #q(x) is not supposed to be part of the summation
   #we will later add Qt[si,si]*V[si] so starting with -Qt[si,si] will cancel it out
-  qVsum =  qx * Vcomp[X_cidx]
+  qVsum =  qx * V[X_cidx]
 
   for Qsparse_idx in Qsparse_indices
     Qval = Qt.nzval[Qsparse_idx]
-    V_LIDX = Qt.rowval[Qsparse_idx]
-    V_CIDX = LIDX2CIDX(V_LIDX)
+    V_CIDX = V_LIDX = Qt.rowval[Qsparse_idx]
+    if(V_is_compact)
+        V_CIDX = LIDX2CIDX(V_LIDX)
+    end     
 
-    qVsum += Qval * Vcomp[V_CIDX]
+    qVsum += Qval * V[V_CIDX]
   end
 
   return (qVsum ) / (β + qx) + r(X, action)
 
 end
+
+
 #############################################
 function NcolNtaxi(s::Vector{Symbol})
 #############################################
@@ -276,12 +307,15 @@ function r(X::XType, a::typeof(g_nullAct))
   return Reward(X, a, β_cost)
 end
 
-function gaussSeidel!(Qt_list, Vcomp::Vector{Float64}, β::Float64; maxIters::Int64=100, maxTime::Float64 = Inf)
+function gaussSeidel!(Qt_list, V::Vector{Float32}, β::Float64; maxIters::Int64=100, maxTime::Float64 = Inf)
 
   Aopt = (typeof(g_nullAct))[g_nullAct for i in 1:g_nXcomp];
+  
+  V_is_compact = length(Aopt) == length(V)
 
   compActs = Array(typeof(g_nullAct), g_nCompActs)
 
+  Xp_indices = collect(permutations(1:g_nVehicles))
 
   start = time()
   @time for iter in 1:maxIters
@@ -292,7 +326,7 @@ function gaussSeidel!(Qt_list, Vcomp::Vector{Float64}, β::Float64; maxIters::In
         #Populate compact actions for this Xtate
         nActs = validCompActions!(compActs, X)
         for aIdx in 1:nActs  #in legalActions(X2S(X))
-            Qa = QVeval(X, compActs[aIdx], Qt_list, Vcomp, β)
+            Qa = QVeval(X, compActs[aIdx], Qt_list, V, β, V_is_compact)
             if Qa > Qmax
                 Qmax = Qa
                 aopt = compActs[aIdx]
@@ -300,10 +334,20 @@ function gaussSeidel!(Qt_list, Vcomp::Vector{Float64}, β::Float64; maxIters::In
         end
 
         X_cidx = X2CIDX(X)
-
-        maxVchange = max(maxVchange, abs(Vcomp[X_cidx] - Qmax))
-        Vcomp[X_cidx] = Qmax
         Aopt[X_cidx] = aopt
+    
+        if (V_is_compact)
+            maxVchange = max(maxVchange, abs(V[X_cidx] - Qmax))
+            V[X_cidx] = Qmax
+        else
+            X_lidx = X2LIDX(X, Xp_indices[1])
+            maxVchange = max(maxVchange, abs(V[X_lidx] - Qmax))
+            V[X_lidx] = Qmax
+            for i in 2:length(Xp_indices)
+                X_lidx = X2LIDX(X, Xp_indices[i]) 
+                V[X_lidx] = Qmax
+            end
+        end
 
         #TODO: remove this
         if maxTime < Inf

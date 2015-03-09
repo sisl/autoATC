@@ -38,8 +38,12 @@ function Ppq_v!(p,q, v)
     #equivalent to v = Pcrazy(p,q) * v
     for i in v.colptr[1]:(v.colptr[2]-1)
         l = v.rowval[i]
-        k = sub2ind((p,q), reverse(ind2sub((q,p),l))...)
-        v.rowval[i] = k
+        #k = sub2ind((p,q), reverse(ind2sub((q,p),l))...)
+        #Above allocates memory and needs to reverse. This one liner is faster
+        #v.rowval[i] = rem(l-1,q) * p + div(l-1,q) + 1
+        #The one below is even faster (4x compared to original!) 
+        (d,r) = divrem(l-1,q)
+        v.rowval[i] =  r * p + d + 1
     end
     return v
 end
@@ -102,6 +106,14 @@ function vKronea!(v,a,n)
     end
 end
 
+
+function sparseVectorPlusEq!(u, v, n)
+    #Add the B values in to A
+    for i in v.colptr[1]:(v.colptr[2]-1) 
+        u[v.rowval[i]] += v.nzval[i]
+    end
+end
+
 ###############################
 #This is the heart of most of it
 function Cbt(Bt,K,b)
@@ -112,23 +124,38 @@ function Cbt(Bt,K,b)
     #Compute Cb
     Cb_res = spzeros(n_K,1);
 
+    #Note that we will abuse this vector!
+    res_u = spzeros(n, 1)
+    #n should be a manageable size...
+    #might consider moving this out of this function though?
+    res_u_rowval = Array(Int64, n)
+    res_u_nzval = Array(Float64, n)
     for u in 0:(K-1)
         p = n^u;
         q = n^(K-u)
         bp = sub2ind((p,q), reverse(ind2sub((q,p),b))...)
         (d,c) = ind2sub((n,n_Km1), bp)
-        #TODO: Optimize this part out.
-        #Maybe pre allocate res_u or at the very least reuse it?
-        res_u = spzeros(n,1);
-        for i in Bt.colptr[d]:(Bt.colptr[d+1]-1)
-          res_u[Bt.rowval[i]] = Bt.nzval[i]
+        
+        #reisze res_u and populate it
+        res_u.m = n
+        #This for loop grabs the d column of Bt
+        idx = 1
+        for i in Bt.colptr[d]:(Bt.colptr[d+1]-1) 
+          res_u_rowval[idx] = Bt.rowval[i]
+          res_u_nzval[idx] = Bt.nzval[i]
+          idx += 1
         end
-        #res_u = B[d,:]'
+        res_u.colptr[2] = idx
+        res_u.rowval = res_u_rowval
+        res_u.nzval = res_u_nzval
         eaKronv!(c, n_Km1, res_u)
         #Last step is to permute
         Ppq_v!(q,p,res_u)
         #Cumulative sum into accumulator
         Cb_res = Cb_res + res_u
+        #sparseVectorPlusEq!(Cb_res, res_u, n_K)
+        #Unfortunately sparseVectorPlusEq doesn't help as much, so just using
+        #the built-in plus function...
     end
 
     return Cb_res
@@ -152,7 +179,10 @@ function Qti_ABt(At,Bt,K,i)
 
     res = Cbt(Bt,K,b)
     eaKronv!(a,n,res)
+    
     res = res + resA
+    #sparseVectorPlusEq!(res, resA, n_K)
+
 
     return res
 end
