@@ -191,6 +191,13 @@ function swap{T}(s::Vector{T}, i, j)
   return sc
 end
 
+function swap!{T}(s::Vector{T}, i, j)
+  if(i != 0 && j != 0)
+    tmp = s[i]
+    s[i] = s[j];
+    s[j] = tmp;
+  end
+end
 ###########################################
 
 
@@ -200,18 +207,18 @@ function findn_rows{Tv,Ti}(S::SparseMatrixCSC{Tv,Ti}, colIdx::Integer)
 end
 
 
-function QVeval(X::XType, action::typeof(g_nullAct), Qt_list, V::Vector{Float32}, β::Float64, V_is_compact::Bool, 
+function QVeval(X::XType, action::typeof(g_nullAct), Qt_list, V::Vector{Float32}, β::Float32, V_is_compact::Bool, 
                     Cb_res, res_u, res_u_rowval, res_u_nzval)
 
   (idx, act) = action;
 
   #First, re-order the states so that we are addressing the right instance
-  Xo = swap(X, 1, idx)
+  swap!(X, 1, idx)
 
   #Find the long index
-  X_cidx = X_lidx  = X2LIDX(Xo)
+  X_cidx = X_lidx  = X2LIDX(X)
   if(V_is_compact)
-    X_cidx = X2CIDX(Xo)
+    X_cidx = X2CIDX(X)
   end 
   
   
@@ -240,6 +247,9 @@ function QVeval(X::XType, action::typeof(g_nullAct), Qt_list, V::Vector{Float32}
 
     qVsum += Qval * V[V_CIDX]
   end
+  
+  #Put back X in its original state
+  swap!(X, 1, idx)
 
   return (qVsum ) / (β + qx) + r(X, action)
 
@@ -260,7 +270,7 @@ function NcolNtaxi(s::Vector{Symbol})
   return [Nc - Ncu, length(inTaxi)]
 end
 
-function NcolNtaxi(X::XType, collisionCost::Float64, taxiCost::Float64)
+function NcolNtaxi(X::XType, collisionCost::Float32, taxiCost::Float32)
   Nc = 0
   Nt = 0
   for i in 1:length(X)
@@ -279,17 +289,17 @@ function NcolNtaxi(X::XType, collisionCost::Float64, taxiCost::Float64)
   return Nc*collisionCost +  Nt*taxiCost
 end
 #############################################
-function Reward(s::Vector{Symbol}, a::typeof(g_nullAct), β::Float64)
+function Reward(s::Vector{Symbol}, a::typeof(g_nullAct), β::Float32)
   return Reward(S2X(S), a, β)
 end
-function Reward(X::XType, a::typeof(g_nullAct), β::Float64)
+function Reward(X::XType, a::typeof(g_nullAct), β::Float32)
 #############################################
-    r = 0.
+    r = 0.0f0
 
     #Each collision costs 1000.
     #And each aircraft just sitting on the taxi also incurs cost
-    collisionCost = -1000.
-    taxiCost = -10.
+    collisionCost = -1000.0f0
+    taxiCost = -10.0f0
 
     #Actions have a cost
     if(a[1] != g_nullAct[1]) #assumes anything with a[1] == 0 is null
@@ -305,24 +315,25 @@ function Reward(X::XType, a::typeof(g_nullAct), β::Float64)
 end
 
 function r(X::XType, a::typeof(g_nullAct))
+  β_cost = 0.0f0;
   return Reward(X, a, β_cost)
 end
 
-function gaussSeidel!(Qt_list, V::Vector{Float32}, β::Float64; maxIters::Int64=100, maxTime::Float64 = Inf)
+function gaussSeidel!(Qt_list, V::Vector{Float32}, β::Float32; maxIters::Int64=100, maxTime::Float64 = Inf)
 
-  Aopt = (typeof(g_nullAct))[g_nullAct for i in 1:g_nXcomp];
+  Aopt = (typeof(g_nullAct))[copy(g_nullAct) for i in 1:g_nXcomp];
   
   V_is_compact = length(Aopt) == length(V)
 
-  compActs = Array(typeof(g_nullAct), g_nCompActs)
+  compActs = typeof(g_nullAct)[copy(g_nullAct) for i in 1:g_nCompActs]
 
   Xp_indices = collect(permutations(1:g_nVehicles))
   
   n = size(Qt_list[1],1)
-  res_u = spzeros(n,1)
+  res_u = spzeros(Float32, n,1)
   res_u_rowval = Array(Int64, n)
-  res_u_nzval = Array(Float64, n)
-  Cb_res = spzeros(n^(g_nVehicles-1),1); #n^K with K = nVehicles - 1
+  res_u_nzval = Array(Float32, n)
+  Cb_res = spzeros(Float32, n^(g_nVehicles-1),1); #n^K with K = nVehicles - 1
   
   
   start = time()
@@ -332,20 +343,25 @@ function gaussSeidel!(Qt_list, V::Vector{Float32}, β::Float64; maxIters::Int64=
     for X in g_Xcomp
         X_cidx += 1 #X_cidx = X2CIDX(X)
         aopt = g_nullAct
-        Qmax = -Inf
+        Qmax = float32(-Inf)
         #Populate compact actions for this Xtate
         nActs = validCompActions!(compActs, X)
         for aIdx in 1:nActs  #in legalActions(X2S(X))
             Qa = QVeval(X, compActs[aIdx], Qt_list, V, β, V_is_compact, 
                 Cb_res, res_u, res_u_rowval, res_u_nzval)
+            
             if Qa > Qmax
                 Qmax = Qa
                 aopt = compActs[aIdx]
             end
         end
 
-        Aopt[X_cidx] = aopt
-    
+      
+        #Aopt[X_cidx] =  aopt yields a reference to compActs, which is BAD!
+
+        Aopt[X_cidx][1] = aopt[1]
+        Aopt[X_cidx][2] = aopt[2]
+
         if (V_is_compact)
             maxVchange = max(maxVchange, abs(V[X_cidx] - Qmax))
             V[X_cidx] = Qmax

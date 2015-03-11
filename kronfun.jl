@@ -133,7 +133,7 @@ end
 #res_u should be passed in to avoid 
 #having to allocate/free them over and over again! 
 #res_u_rowval = Array(Int64, n)
-#res_u_nzval = Array(Float64, n)
+#res_u_nzval = Array(Float32, n)
 #res_u = spzeros(n,1) #Note that we will abuse this vector :)
 #Cb_res = spzeros(n_K,1); #This will get cleared
 function Cbt!(Bt,K,b, Cb_res, res_u, res_u_rowval, res_u_nzval)
@@ -159,7 +159,10 @@ function Cbt!(Bt,K,b, Cb_res, res_u, res_u_rowval, res_u_nzval)
         #k = sub2ind((p,q), reverse(ind2sub((q,p),l))...)
         #bp = sub2ind((p,q), reverse(ind2sub((q,p),b))...)
         bp = pqlqp(p,q,b)
-        (d,c) = ind2sub((n,n_Km1), bp)
+        #(d,c) = ind2sub((n,n_Km1), bp)
+        #(rem(ind-1,dims[1])+1, div(ind-1,dims[1])+1)
+        (c, d) = divrem(bp-1, n)
+        c += 1; d += 1;
         
         #reisze res_u and populate it
         res_u.m = n

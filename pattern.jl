@@ -389,7 +389,7 @@ function validCompActions!(compActs::Vector{typeof(g_nullAct)}, X::Vector{Int64}
   nActs = 0
 
   nActs += 1
-  compActs[nActs] = g_nullAct
+  #compActs[nActs] = copy(g_nullAct) #should be the case by default
   for i in 1:length(X)
     x = X[i]
     if x in xDep #Departure state, can't tell it what to do
@@ -402,7 +402,8 @@ function validCompActions!(compActs::Vector{typeof(g_nullAct)}, X::Vector{Int64}
           continue
         end
         nActs += 1
-        compActs[nActs] = [i, j]
+        compActs[nActs][1] = i
+        compActs[nActs][2] = j
       end
     end
   end
