@@ -150,8 +150,8 @@ function Cbt!(Bt,K,b, Cb_res, res_u, res_u_rowval, res_u_nzval)
     #TODO: find a way to reuse the rowval and nzval arrays!
     #Ideally the rowval and value vector should get reused
     #But for now they'll get reallocated everytime ...
-    Cb_res.rowval =  Array(Int64, 0)
-    Cb_res.nzval  =  Array(Float64, 0)
+    resize!(Cb_res.rowval,0)
+    resize!(Cb_res.nzval,0)
 
     for u in 0:(K-1)
         p = n^u;
