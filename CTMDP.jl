@@ -338,7 +338,7 @@ function gaussSeidel!(Qt_list, V::Vector{Float32}, β::Float32; maxIters::Int64=
   
   start = time()
   @time for iter in 1:maxIters
-    maxVchange = 0.
+    maxVchange = 0.0f0
     X_cidx = 0
     for X in g_Xcomp
         X_cidx += 1 #X_cidx = X2CIDX(X)
@@ -376,12 +376,12 @@ function gaussSeidel!(Qt_list, V::Vector{Float32}, β::Float32; maxIters::Int64=
         end
 
         #TODO: remove this
-        if maxTime < Inf
-          elapsedTime = time() - start
-          if elapsedTime > maxTime
-            break
-          end
-        end
+#         if maxTime < Inf
+#           elapsedTime = time() - start
+#           if elapsedTime > maxTime
+#             break
+#           end
+#         end
     end
 
     elapsedTime = time() - start
@@ -389,7 +389,8 @@ function gaussSeidel!(Qt_list, V::Vector{Float32}, β::Float32; maxIters::Int64=
         @printf("Stopping after %i iterations (maxVchange = %.2f)\n", iter, maxVchange)
         break
     elseif mod(iter, 5) == 0
-        @printf("At iteration #%i (%.2f sec)\n", iter, elapsedTime)
+        @printf("At iteration #%i: maxVchange = %.2f , t = %.2f sec\n", 
+                    iter, maxVchange, elapsedTime)
     end
   end
 
@@ -422,6 +423,89 @@ function policy_S2a(S::SType, Aopt::Vector{typeof(g_nullAct)})
   return policy_X2a(S2X(S),Aopt)
 end
 
+##################################
+#Use policy from the 1 phase case 
+function liftUpPolicy!(Qt_list, V::Vector{Float32}, β::Float32, Aopt1::Vector{typeof(g_nullAct)}; maxIters::Int64=100, maxTime::Float64 = Inf)
+    #We are fine using references, as they will later get 
+    #changed to other references, and since we ultimately populate
+    #the value function, we won't return this to anyone!
+    Aopt = Array(typeof(g_nullAct), g_nXcomp);
+    
+    #We reconstruct the compact dictionary for phase free case!
+    #TODO: Get rid of the hardcoded 27!!
+    Scomp1 = combos_with_replacement(g_allstates[1:27], g_nVehicles)
+    Xcomp1 = XType[S2X(s) for s in Scomp1]
+    X2CIDX1_dict = (XType => Int64)[Xcomp1[cidx] => cidx for cidx in 1:length(Xcomp1)]
+    function X1_2CIDX(X::XType)
+      return X2CIDX1_dict[sort(X)]
+    end
+
+    X_cidx = 0
+    for X in g_Xcomp
+        X_cidx += 1 #X_cidx = X2CIDX(X)
+        S = X2S(X)
+        #Get rid of the phases since we are going to a 1phase case
+        S1 = [phaseFree(s) for s in S]
+        #Next convert to X1, note that this makes the assumption
+        #that the phase free representation always comes first
+        X1 = S2X(S1)
+        #Next we need to figure out the compact index in the original
+        #representation. Unfortunately we can't use X2CIDX since the dictionary
+        #that is being used is the one with phases. So instead we use the locally
+        #defined X1_2CIDX function
+        X1_cidx = X1_2CIDX(X1)
+
+        #Now we can go ahead and compute the optimal policy
+        Aopt[X_cidx] = Aopt1[X1_cidx]
+    end
+    
+    #Now use policy evaluation to figure out what V out-to-be
+    Xp_indices = collect(permutations(1:g_nVehicles))
+    n = size(Qt_list[1],1)
+    res_u = spzeros(Float32, n,1)
+    res_u_rowval = Array(Int64, n)
+    res_u_nzval = Array(Float32, n)
+    Cb_res = spzeros(Float32, n^(g_nVehicles-1),1); #n^K with K = nVehicles - 1
+    
+    
+    start = time()
+    @time for iter in 1:maxIters
+        maxVchange = 0.0f0
+        X_cidx = 0
+        for X in g_Xcomp
+            X_cidx += 1 #X_cidx = X2CIDX(X)
+            Qa = QVeval(X, Aopt[X_cidx], Qt_list, V, β, false, 
+                    Cb_res, res_u, res_u_rowval, res_u_nzval)
+                
+            X_lidx = X2LIDX(X, Xp_indices[1])
+            maxVchange = max(maxVchange, abs(V[X_lidx] - Qa))
+            V[X_lidx] = Qa
+            for i in 2:length(Xp_indices)
+                X_lidx = X2LIDX(X, Xp_indices[i]) 
+                V[X_lidx] = Qa
+            end
+    
+            #TODO: remove this
+            if maxTime < Inf
+              elapsedTime = time() - start
+              if elapsedTime > maxTime
+                break
+              end
+            end
+        end
+        
+        elapsedTime = time() - start
+        #Note that we use a much coarser value for maxVchange since
+        #we just want to get close!
+        if(maxVchange < 100 || iter==maxIters || elapsedTime > maxTime)
+            @printf("Stopping after %i iterations (maxVchange = %.2f)\n", iter, maxVchange)
+            break
+        elseif mod(iter, 5) == 0
+            @printf("At iteration #%i: maxVchange = %.2f , t = %.2f sec\n", 
+                    iter, maxVchange, elapsedTime)
+        end     
+    end
+end
 
 ###################
 
