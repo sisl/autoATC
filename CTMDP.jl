@@ -340,6 +340,7 @@ function gaussSeidel!(Qt_list, V::Vector{Float32}, β::Float32; maxIters::Int64=
   @time for iter in 1:maxIters
     maxVchange = 0.0f0
     X_cidx = 0
+    nActsChanged = 0;  
     for X in g_Xcomp
         X_cidx += 1 #X_cidx = X2CIDX(X)
         aopt = g_nullAct
@@ -358,6 +359,7 @@ function gaussSeidel!(Qt_list, V::Vector{Float32}, β::Float32; maxIters::Int64=
 
       
         #Aopt[X_cidx] =  aopt yields a reference to compActs, which is BAD!
+        nActsChanged = nActsChanged + ((Aopt[X_cidx][1] == aopt[1] && Aopt[X_cidx][2] == aopt[2]) ? 0 : 1)
 
         Aopt[X_cidx][1] = aopt[1]
         Aopt[X_cidx][2] = aopt[2]
@@ -389,8 +391,8 @@ function gaussSeidel!(Qt_list, V::Vector{Float32}, β::Float32; maxIters::Int64=
         @printf("Stopping after %i iterations (maxVchange = %.2f)\n", iter, maxVchange)
         break
     elseif mod(iter, 5) == 0
-        @printf("At iteration #%i: maxVchange = %.2f , t = %.2f sec\n", 
-                    iter, maxVchange, elapsedTime)
+        @printf("At iteration #%i: maxVchange = %.2f, nActsChanged = %d, t = %.2f sec\n", 
+                    iter, maxVchange, nActsChanged, elapsedTime)
     end
   end
 
