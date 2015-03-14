@@ -100,9 +100,7 @@ psi_L[:LArr] = (10, 270);
 
 
 posNE = Dict([(:R,"S")], [pos(0,0,-300)])
-i = 0;
 while(true)
-  i+=1;
   newleg = false
   for s in allstates
     s_start = (s, "S");   s_end = (s, "E")
@@ -111,6 +109,7 @@ while(true)
                              psi_L[s][1]*RefLength,
                              deg2rad(psi_L[s][2]))
       for snext in NextStates[s]
+        snext = phaseFree(snext)
         sn_start = (snext, "S")
         if !haskey(posNE, sn_start) && haskey(psi_L, snext)
           posNE[sn_start] = deepcopy(posNE[s_end])
@@ -184,6 +183,10 @@ type airplane
   #this just keeps track of the history!
   path::Vector{pos}
   sLocHist::Vector{Symbol}
+  
+  #Leg distance
+  legDist::Float64
+  navPhase::Symbol
 
 
   #Constructors
@@ -195,18 +198,23 @@ type airplane
     psi = bearing(p0, p1)
     destNED = p1
 
+    legDist = distance(p0,p1)
     new(airspeed, p0, psi, 0, 0, false, false,
         airspeed, pos(0,0,0),
         navDest, destNED,
-        :∅, [deepcopy(p0)], [s])
+        :∅, [deepcopy(p0)], [s],
+        legDist, appendPhase(s,1))
 
   end
   airplane(airspeed) = airplane(airspeed, :R)
 
 end
 
+
+#################################################
 #Find out where this airplane is headed
-#(accounting for noise)
+#noise is already accounted for
+#################################################
 function destination(a::airplane)
   return a.destNED #posNE[a.navDest] + a.navNoise
 end
@@ -286,8 +294,12 @@ function navigate!(ac::airplane)
   #We will signal we are ready for transition
   #if the distance to the target is below a threshold
   #If the target is @ "E", we are also ready to transition
-  ac.readyToTransition = (distance(p1, ac.posNED) < transThresh)
+  d = distance(p1, ac.posNED)
+  ac.readyToTransition = (d < transThresh)
   ac.readyForATC = ac.readyToTransition && ac.navDest[2] == "E"
+  
+  k = int(floor(d / ac.legDist * nPhases) + 1)
+  ac.navPhase = appendPhase(ac.navDest[1],k)
 
   #When tracking the runway, do more of a fake x-track like
   if(ac.navDest[1] == :F1 && ac.navDest[2] == "E" && abs(p0.e) < 2000 )
@@ -327,6 +339,8 @@ function transition(ac::airplane)
     #We do that based on any atcCommand that we have received
     a = ac.atcCommand
     sn = randomChoice(s, a != :∅, a)
+    #Get rid of the phase information
+    sn = phaseFree(sn)
     ac.atcCommand = :∅
 
 
@@ -341,7 +355,7 @@ function transition(ac::airplane)
                             30 * ac.airspeed + transThresh,
                             rand(rng)*(2*pi));
     #Also for the go around state, we should head straight
-    #to the go around state
+    #to the end of the leg!
     elseif (s == :GO)
       d = "E"
     end
@@ -351,7 +365,19 @@ function transition(ac::airplane)
 
   ac.destNED = posNE[ac.navDest] + ac.navNoise
 
+  #Compute total distance to be travelled. This will be used
+  #to guess what phase the aircraft are in. 
+  ac.legDist = distance(ac.destNED, ac.posNED)
 
+  #TODO: Consider putting navPhase as part of navDest?
+  #also reset the navPhase
+  ac.navPhase = appendPhase(ac.navDest[1], 1)
+  
+  #Don't waste navigating towards the start point if it's right next
+  #to where we are going!
+  if(ac.legDist <= transThresh)
+    transition(ac)
+  end
 end
 
 #################################################
@@ -359,7 +385,7 @@ function flyPattern!(ac::airplane)
 #################################################
   #Check if we are ready to transition based
   #on the last navigation step. If so act accordingly
-  if(ac.readyToTransition || ac.atcCommand == :GO)
+  if(ac.readyToTransition || phaseFree(ac.atcCommand) == :GO)
     transition(ac)
   end
 
@@ -374,7 +400,7 @@ function runAutoATC(acList::Vector{airplane}, runATC::Symbol, policyFun)
 #################################################
   act = g_noaction
   if runATC == :MDP
-    act = policyFun([ac.navDest[1] for ac in acList])
+    act = policyFun([ac.navPhase for ac in acList]) #ac.navDest[1]
 #   else
 #     for i in 1:4
 #       ac = acList[i]

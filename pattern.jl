@@ -65,7 +65,7 @@ const nPhases = 2; #must be >= 1
 phaseFreeStates = [:R, :LDep, :LArr, :RDep, :RArr]
 *(a::Symbol, b::Symbol) = symbol(string(a, b))
 function appendPhase(s::Symbol, k::Int64)
-    if s in phaseFreeStates || k == nPhases
+    if s in phaseFreeStates || k >= nPhases
         return s
     else
         return symbol(string("ϕ",k,"_", s))
