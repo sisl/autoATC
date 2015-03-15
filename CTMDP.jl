@@ -213,9 +213,9 @@ function QVeval(X::XType, action::typeof(g_nullAct), Qt_list, V::Vector{Float32}
 
   #This is a terminal state... Q(s,a) = R(s,a)
   assert(β < 0.9f0) #We make the assumption that action cost is small relative to collision cost
-#   if( R <=  collisionCost)
-#     return R
-#   end
+  if( R <=  collisionCost)
+    return R
+  end
   
 
   (idx, act) = action;
