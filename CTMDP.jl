@@ -199,17 +199,24 @@ function swap!{T}(s::Vector{T}, i, j)
   end
 end
 ###########################################
+#Each collision costs 1000.
+#And each aircraft just sitting on the taxi also incurs cost
+const collisionCost = -1000.0f0
+const taxiCost = -10.0f0
 
 
-function findn_rows{Tv,Ti}(S::SparseMatrixCSC{Tv,Ti}, colIdx::Integer)
-    idx = S.colptr[colIdx] : (S.colptr[colIdx+1]-1)
-    return (S.rowval[idx] , S.nzval[idx])
-end
-
-
-function QVeval!(X::XType, action::typeof(g_nullAct), Qt_list, V::Vector{Float32},
+function QVeval(X::XType, action::typeof(g_nullAct), Qt_list, V::Vector{Float32},
                 ζ::Float32, β::Float32, V_is_compact::Bool, 
                 Cb_res, res_u, res_u_rowval, res_u_nzval)
+
+  R = r(X, action, β)
+
+  #This is a terminal state... Q(s,a) = R(s,a)
+  assert(β < 0.9f0) #We make the assumption that action cost is small relative to collision cost
+#   if( R <=  collisionCost)
+#     return R
+#   end
+  
 
   (idx, act) = action;
 
@@ -252,7 +259,7 @@ function QVeval!(X::XType, action::typeof(g_nullAct), Qt_list, V::Vector{Float32
   #Put back X in its original state
   swap!(X, 1, idx)
 
-  return (qVsum ) / (ζ + qx) + r(X, action, β)
+  return (qVsum ) / (ζ + qx) + R
 
 end
 
@@ -296,11 +303,6 @@ end
 function Reward(X::XType, a::typeof(g_nullAct), β::Float32)
 #############################################
     r = 0.0f0
-
-    #Each collision costs 1000.
-    #And each aircraft just sitting on the taxi also incurs cost
-    collisionCost = -1000.0f0
-    taxiCost = -10.0f0
 
     #Actions have a cost
     if(a[1] != g_nullAct[1]) #assumes anything with a[1] == 0 is null
@@ -348,7 +350,7 @@ function gaussSeidel!(Qt_list, V::Vector{Float32}, ζ::Float32, β::Float32; max
         #Populate compact actions for this Xtate
         nActs = validCompActions!(compActs, X)
         for aIdx in 1:nActs
-            Qa = QVeval!(X, compActs[aIdx], Qt_list, V, ζ, β, 
+            Qa = QVeval(X, compActs[aIdx], Qt_list, V, ζ, β, 
                         V_is_compact, Cb_res, res_u, res_u_rowval, res_u_nzval)
             
             if Qa > Qmax
@@ -410,19 +412,31 @@ function policy_X2a(X::XType, Aopt::Vector{typeof(g_nullAct)})
   act = g_nullAct
   if compactAct != g_nullAct
     pidx = [1:length(X)][Xperm[compactAct[1]]]
-    act = [pidx, compactAct[2]]
+    act = [int8(pidx), compactAct[2]]
   end
 
-  try
-    act = compAct2extAct(act,X2S(X))
-  catch
-    println(X, sort(X), act, compactAct)
-  end
+  act = compAct2extAct(act,X2S(X))
+
   return act
 
 end
 function policy_S2a(S::SType, Aopt::Vector{typeof(g_nullAct)})
   return policy_X2a(S2X(S),Aopt)
+end
+##################################
+
+function savePolicy(Aopt, α, β_cost)
+    filename = "policies/CTMDPpolicy_n_" * string(nPhases) * "_a_" * string(α) * "_b_" * string(β_cost) * ".jld"
+    Aopt_idx = Int8[Aopt[i][1] for i in 1:length(Aopt)]
+    Aopt_act = Int8[Aopt[i][2] for i in 1:length(Aopt)]
+    save(filename, "Aopt_idx", Aopt_idx, "Aopt_act", Aopt_act); #"Vstar", Vshort,
+    println(filename)
+end
+
+function loadPolicy(α, β_cost)
+    filename = "policies/CTMDPpolicy_n_" * string(nPhases) * "_a_" * string(α) * "_b_" * string(β_cost) * ".jld"
+    data = load(filename)
+    Aopt = typeof(g_nullAct)[[data["Aopt_idx"][i] , data["Aopt_act"][i]] for i in 1:length(data["Aopt_idx"])]
 end
 
 ##################################
@@ -476,7 +490,7 @@ function liftUpPolicy!(Qt_list, V::Vector{Float32}, ζ::Float32, β::Float32,  A
         X_cidx = 0
         for X in g_Xcomp
             X_cidx += 1 #X_cidx = X2CIDX(X)
-            Qa = QVeval!(X, Aopt[X_cidx], Qt_list, V, ζ, β, false, 
+            Qa = QVeval(X, Aopt[X_cidx], Qt_list, V, ζ, β, false, 
                     Cb_res, res_u, res_u_rowval, res_u_nzval)
                 
             X_lidx = X2LIDX(X, Xp_indices[1])

@@ -19,8 +19,8 @@ rng = MersenneTwister()
 #Parameters
 #############################################
 α = 1.0; #Probability of following ATC command
-const g_noaction = (0, :∅)
-const g_nullAct = [0,0]
+const g_noaction = (int8(0), :∅)
+const g_nullAct = Int8[0,0]
 
 
 #############################################
@@ -61,7 +61,7 @@ end
 #Note that this will introduce (nPhases-1) as the last phase is
 #assumed to be the state itself.
 #We also assume that the actions are given at the last phase.
-const nPhases = 2; #must be >= 1
+const nPhases = 1; #must be >= 1
 phaseFreeStates = [:R, :LDep, :LArr, :RDep, :RArr]
 *(a::Symbol, b::Symbol) = symbol(string(a, b))
 function appendPhase(s::Symbol, k::Int64)
@@ -404,8 +404,13 @@ function validCompActions!(compActs::Vector{typeof(g_nullAct)}, X::Vector{Int64}
     #on runway or in departure state, can't tell it what to do
     #Note that if a similar x has been encountered, no point in evaluating
     #commanding the same one
-    #TODO: this might create GC?
-    if x in xDep || x in xRunway ||  x in X[1:(i-1)]
+    #x in X[1:(i-1)] #This causes memory being allocated ...
+    #Instead using little for loop
+    isrepeated = false
+    for j in 1:(i-1)
+        (isrepeated = x == X[j]) && break
+    end
+    if isrepeated || x in xDep || x in xRunway #||  x in X[1:(i-1)]
       continue
     end
     nX = length(NextXtates[x])
