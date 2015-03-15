@@ -69,6 +69,10 @@ function +(p0::pos, p1::pos)
     return pos(p0.n + p1.n , p0.e + p1.e, p0.d + p1.d)
 end
 
+import Base.copy
+function copy(p0::pos)
+    return pos(p0.n, p0.e, p0.d)
+end
 #################################################
 #Parametrize things with a bearing and a length,
 #then we will populate the positions as a tree
@@ -82,11 +86,11 @@ psi_L[:U1] = (5, 90);
                 psi_L[:LX1] = (2, 0);
 psi_L[:LD1] = (6, 270); psi_L[:LD2] = (5, 270)
                 psi_L[:LB1] = (2, 180);
-psi_L[:F1] = (5, 90); #Back on runway
+psi_L[:F1] = (4, 90); #Back on runway
 
 
 psi_L[:F0] = (3, 90);
-psi_L[:GO] = (1, 45);
+psi_L[:GO] = (1.5, 60);
 
 
 psi_L[:U2] = (3, 90);
@@ -112,7 +116,7 @@ while(true)
         snext = phaseFree(snext)
         sn_start = (snext, "S")
         if !haskey(posNE, sn_start) && haskey(psi_L, snext)
-          posNE[sn_start] = deepcopy(posNE[s_end])
+          posNE[sn_start] = copy(posNE[s_end])
           newleg = true
         end
       end
@@ -141,7 +145,7 @@ for astr in allstates_string
       a = (symbol(astr), d)
       b = (symbol(astr_l), d)
       if b in keys(posNE)
-        posNE[a] = deepcopy(posNE[b])
+        posNE[a] = copy(posNE[b])
         posNE[a].n *= -1;
       end
     end
@@ -150,7 +154,7 @@ end
 
 
 function wpPos(wp::Symbol)
-  return deepcopy(posNE[(wp, "S")])
+  return copy(posNE[(wp, "S")])
 end
 
 #################################################
@@ -186,15 +190,16 @@ type airplane
   
   #Leg distance
   legDist::Float64
-  navPhase::Symbol
+  navPhase::Int64
 
 
   #Constructors
   function airplane(airspeed, s)
+    s = phaseFree(s)
     navOrig = (s, "S")
     navDest = (s, "E")
-    p0 = deepcopy(posNE[navOrig])
-    p1 = deepcopy(posNE[navDest])
+    p0 = copy(posNE[navOrig])
+    p1 = copy(posNE[navDest])
     psi = bearing(p0, p1)
     destNED = p1
 
@@ -202,8 +207,8 @@ type airplane
     new(airspeed, p0, psi, 0, 0, false, false,
         airspeed, pos(0,0,0),
         navDest, destNED,
-        :∅, [deepcopy(p0)], [s],
-        legDist, appendPhase(s,1))
+        :∅, [copy(p0)], [s],
+        legDist, 1)
 
   end
   airplane(airspeed) = airplane(airspeed, :R)
@@ -245,7 +250,7 @@ function move!(ac::airplane, dt::Float64, savepath::Bool = true)
   ac.psi = unwrap(ac.psi + psidot * dt);
 
   if(savepath)
-    push!(ac.path,deepcopy(ac.posNED))
+    push!(ac.path,copy(ac.posNED))
     push!(ac.sLocHist, ac.navDest[1])
   end
   #push!(ac.psiHist,ac.psi)
@@ -298,9 +303,8 @@ function navigate!(ac::airplane)
   ac.readyToTransition = (d < transThresh)
   ac.readyForATC = ac.readyToTransition && ac.navDest[2] == "E"
   
-  k = int(floor(d / ac.legDist * nPhases) + 1)
-  ac.navPhase = appendPhase(ac.navDest[1],k)
-
+  ac.navPhase = min(max(int(ceil((1 - d/ ac.legDist) * nPhases)), 1) , nPhases)  
+  
   #When tracking the runway, do more of a fake x-track like
   if(ac.navDest[1] == :F1 && ac.navDest[2] == "E" && abs(p0.e) < 2000 )
     frac = clip(abs(p0.e)/1500, 0., 1.)
@@ -371,7 +375,7 @@ function transition(ac::airplane)
 
   #TODO: Consider putting navPhase as part of navDest?
   #also reset the navPhase
-  ac.navPhase = appendPhase(ac.navDest[1], 1)
+  ac.navPhase = 1 
   
   #Don't waste navigating towards the start point if it's right next
   #to where we are going!
@@ -385,7 +389,7 @@ function flyPattern!(ac::airplane)
 #################################################
   #Check if we are ready to transition based
   #on the last navigation step. If so act accordingly
-  if(ac.readyToTransition || phaseFree(ac.atcCommand) == :GO)
+  if(ac.readyToTransition) # || phaseFree(ac.atcCommand) == :GO)
     transition(ac)
   end
 
@@ -400,7 +404,10 @@ function runAutoATC(acList::Vector{airplane}, runATC::Symbol, policyFun)
 #################################################
   act = g_noaction
   if runATC == :MDP
-    act = policyFun([ac.navPhase for ac in acList]) #ac.navDest[1]
+    S = Symbol[appendPhase(ac.navDest[1],ac.navPhase) for ac in acList]
+    act = policyFun(S) #ac.navDest[1]
+    
+    #@printf("S=%s,%s,%s,%s   %i->%s\n", S[1], S[2], S[3], S[4], act[1],act[2])
 #   else
 #     for i in 1:4
 #       ac = acList[i]
@@ -436,11 +443,10 @@ function isSafe(s::Symbol, dest::ASCIIString)
 #   return false
 end
 #################################################
-function getDmin(acList::Vector{airplane})
+function getDmin!(idmin, acList::Vector{airplane})
 #################################################
 #Compute the minimum distance to a given aircraft
   dmin = Inf
-  idmin = Int64[0, 0]
   for idx in 1:(length(acList)-1)
     ac = acList[idx]
     #All is good if we are in a safe state
@@ -453,7 +459,7 @@ function getDmin(acList::Vector{airplane})
           dmin_new = distance2(ac.posNED, ac2.posNED)
           if(abs(ac.posNED.d - ac2.posNED.d) < 30 && dmin_new < dmin)
             dmin = dmin_new
-            idmin = Int64[idx, i]
+            idmin[1] = idx; idmin[2] = i
           end
         end
       end
@@ -462,12 +468,10 @@ function getDmin(acList::Vector{airplane})
 
   #If we don't find anything, make it NaN for
   #making it straightfoward
-  if dmin == Inf
-      dmin = NaN
-  else
+  if dmin != Inf
       dmin = sqrt(dmin) - 150.
   end
-  return (dmin, idmin)
+  return dmin
 end
 
 #################################################
@@ -479,13 +483,14 @@ function simulate!(acList::Vector{airplane}, Tend, stopEarly = false, runATC::Sy
   trange =  0:simdt:Tend
 
   smartATCtiming = (runATC == :MDP || runATC == :None)
-  if runATC == :MDP2
+  if runATC == :MDP_periodic
     runATC = :MDP
   end
 
 
   stopsim = false;
   idmin = Int64[0,0]
+  dmin = Inf
   alertCount = 0
 
   flightTime = 0.
@@ -537,13 +542,10 @@ function simulate!(acList::Vector{airplane}, Tend, stopEarly = false, runATC::Sy
 
 
     #Compute the distance to all other boogies
-    (dmin, idmin_local) = getDmin(acList)
+    dmin = getDmin!(idmin, acList)
     if(stopEarly && dmin <= 0)
-      idmin = idmin_local
       break;
     end
-
-
 
 
     for idx in 1:length(acList)
