@@ -207,8 +207,9 @@ function findn_rows{Tv,Ti}(S::SparseMatrixCSC{Tv,Ti}, colIdx::Integer)
 end
 
 
-function QVeval(X::XType, action::typeof(g_nullAct), Qt_list, V::Vector{Float32}, β::Float32, V_is_compact::Bool, 
-                    Cb_res, res_u, res_u_rowval, res_u_nzval)
+function QVeval!(X::XType, action::typeof(g_nullAct), Qt_list, V::Vector{Float32},
+                ζ::Float32, β::Float32, V_is_compact::Bool, 
+                Cb_res, res_u, res_u_rowval, res_u_nzval)
 
   (idx, act) = action;
 
@@ -251,7 +252,7 @@ function QVeval(X::XType, action::typeof(g_nullAct), Qt_list, V::Vector{Float32}
   #Put back X in its original state
   swap!(X, 1, idx)
 
-  return (qVsum ) / (β + qx) + r(X, action)
+  return (qVsum ) / (ζ + qx) + r(X, action, β)
 
 end
 
@@ -314,12 +315,11 @@ function Reward(X::XType, a::typeof(g_nullAct), β::Float32)
     return r;
 end
 
-function r(X::XType, a::typeof(g_nullAct))
-  β_cost = 0.0f0;
-  return Reward(X, a, β_cost)
+function r(X::XType, a::typeof(g_nullAct), β::Float32)
+  return Reward(X, a, β)
 end
 
-function gaussSeidel!(Qt_list, V::Vector{Float32}, β::Float32; maxIters::Int64=100, maxTime::Float64 = Inf)
+function gaussSeidel!(Qt_list, V::Vector{Float32}, ζ::Float32, β::Float32; maxIters::Int64=100, maxTime::Float64 = Inf)
 
   Aopt = (typeof(g_nullAct))[copy(g_nullAct) for i in 1:g_nXcomp];
   
@@ -348,8 +348,8 @@ function gaussSeidel!(Qt_list, V::Vector{Float32}, β::Float32; maxIters::Int64=
         #Populate compact actions for this Xtate
         nActs = validCompActions!(compActs, X)
         for aIdx in 1:nActs
-            Qa = QVeval(X, compActs[aIdx], Qt_list, V, β, V_is_compact, 
-                Cb_res, res_u, res_u_rowval, res_u_nzval)
+            Qa = QVeval!(X, compActs[aIdx], Qt_list, V, ζ, β, 
+                        V_is_compact, Cb_res, res_u, res_u_rowval, res_u_nzval)
             
             if Qa > Qmax
                 Qmax = Qa
@@ -427,7 +427,7 @@ end
 
 ##################################
 #Use policy from the 1 phase case 
-function liftUpPolicy!(Qt_list, V::Vector{Float32}, β::Float32, Aopt1::Vector{typeof(g_nullAct)}; maxIters::Int64=100, maxTime::Float64 = Inf)
+function liftUpPolicy!(Qt_list, V::Vector{Float32}, ζ::Float32, β::Float32,  Aopt1::Vector{typeof(g_nullAct)}; maxIters::Int64=100, maxTime::Float64 = Inf)
     #We are fine using references, as they will later get 
     #changed to other references, and since we ultimately populate
     #the value function, we won't return this to anyone!
@@ -476,7 +476,7 @@ function liftUpPolicy!(Qt_list, V::Vector{Float32}, β::Float32, Aopt1::Vector{t
         X_cidx = 0
         for X in g_Xcomp
             X_cidx += 1 #X_cidx = X2CIDX(X)
-            Qa = QVeval(X, Aopt[X_cidx], Qt_list, V, β, false, 
+            Qa = QVeval!(X, Aopt[X_cidx], Qt_list, V, ζ, β, false, 
                     Cb_res, res_u, res_u_rowval, res_u_nzval)
                 
             X_lidx = X2LIDX(X, Xp_indices[1])
