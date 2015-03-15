@@ -347,7 +347,7 @@ function gaussSeidel!(Qt_list, V::Vector{Float32}, β::Float32; maxIters::Int64=
         Qmax = float32(-Inf)
         #Populate compact actions for this Xtate
         nActs = validCompActions!(compActs, X)
-        for aIdx in 1:nActs  #in legalActions(X2S(X))
+        for aIdx in 1:nActs
             Qa = QVeval(X, compActs[aIdx], Qt_list, V, β, V_is_compact, 
                 Cb_res, res_u, res_u_rowval, res_u_nzval)
             

@@ -277,17 +277,25 @@ function probFromTo(from::Symbol, to::Symbol, receivedATC::Bool, atcDesired::Sym
         if Nnext == 1
             p = 1.
         #Not addressing this aircraft or invalid atc command
+        #All other states are equally likely
         elseif !receivedATC || !(atcDesired in allNext)
-            #except for taxi (aircraft will not take-off unless told so)
-            #All other states are equally likely
-            if(true)#from != :T)
-              p = 1./ Nnext
-            #i.e. from Taxi -> Taxi without ATC commands
-            elseif (to == :T)
-                p = α
-            #From Taxi -> other things..
-            else
-                p = (1-α)/(Nnext-1)
+            p = 1./ Nnext
+            
+            #Ugly handling of Taxi/Runway interaction!
+            fromF = phaseFree(from)
+            toF = phaseFree(to)
+            if(fromF == :R)
+                if toF == :T
+                    p = 0.1
+                else
+                    p = 0.9
+                end
+            elseif (from == :T)
+                if toF == :T
+                    p = 0.1
+                else
+                    p = 0.9
+                end
             end
         #received ATC command, collaborate!
         else
@@ -310,7 +318,7 @@ function validActions(S)
   A = [g_noaction]; sizehint(A, 10);
   for (i, s) in enumerate(S)
     #Can't tell departing aircrafts what to do
-    if !(s in [:LDep, :RDep])
+    if !(s in [:LDep, :RDep, :R])
       snext = NextStates[s]
       if(length(snext) > 1)
         for sn in snext
@@ -351,30 +359,31 @@ function compAct2extAct(act::typeof(g_nullAct), S)
   return eAct
 end
 
-#TODO: Optimize this. Low hanging fruit!!?!!
-#Could probably rewrite this to not have to call everything
-#else and instead just use the number of next available states!
+
+function listSpecialStates!(xOut, sOut, sList)
+    cnt = 0
+    for s in sList
+      for k in 1:nPhases
+        cnt += 1
+        sOut[cnt] = appendPhase(s,k)
+        xOut[cnt] = g_sn[sOut[cnt]]
+      end
+    end
+    resize!(sOut, cnt)
+    resize!(xOut, cnt)
+end
 const xDep = Array(Int64, 2 * nPhases)
 const sDep = Array(Symbol, 2 * nPhases)
-cnt = 0
-for s in [:LDep, :RDep]
-  for k in 1:nPhases
-    cnt += 1
-    sDep[cnt] = appendPhase(s,k)
-    xDep[cnt] = g_sn[sDep[cnt]]
-  end
-end
-const xTaxi = g_sn[:T]
+listSpecialStates!(xDep, sDep, [:LDep, :RDep])
 const xSafe = Array(Int64, 5 * nPhases)
 const sSafe = Array(Symbol, 5 * nPhases)
-cnt = 0
-for s in [:LDep, :RDep, :LArr, :RArr, :T]
-  for k in 1:nPhases
-    cnt += 1
-    sSafe[cnt] = appendPhase(s,k)
-    xSafe[cnt] = g_sn[sSafe[cnt]]
-  end
-end
+listSpecialStates!(xSafe, sSafe, [:LDep, :RDep, :LArr, :RArr, :T])
+const xTaxi = Array(Int64, 2 * nPhases)
+const sTaxi = Array(Symbol, 2 * nPhases)
+listSpecialStates!(xTaxi, sTaxi, [:T])
+const xRunway = Array(Int64, 2 * nPhases)
+const sRunway = Array(Symbol, 2 * nPhases)
+listSpecialStates!(xRunway, sRunway, [:R])
 
 function validCompactActions(S)
   actions = validActions(S)
@@ -392,7 +401,11 @@ function validCompActions!(compActs::Vector{typeof(g_nullAct)}, X::Vector{Int64}
   #compActs[nActs] = copy(g_nullAct) #should be the case by default
   for i in 1:length(X)
     x = X[i]
-    if x in xDep #Departure state, can't tell it what to do
+    #on runway or in departure state, can't tell it what to do
+    #Note that if a similar x has been encountered, no point in evaluating
+    #commanding the same one
+    #TODO: this might create GC?
+    if x in xDep || x in xRunway ||  x in X[1:(i-1)]
       continue
     end
     nX = length(NextXtates[x])
