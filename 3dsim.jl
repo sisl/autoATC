@@ -400,32 +400,11 @@ end
 
 
 #################################################
-function runAutoATC(acList::Vector{airplane}, runATC::Symbol, policyFun)
+function runAutoATC(acList::Vector{airplane}, policyFun)
 #################################################
   act = g_noaction
-  if runATC == :MDP
-    S = Symbol[appendPhase(ac.navDest[1],ac.navPhase) for ac in acList]
-    act = policyFun(S) #ac.navDest[1]
-    
-    #@printf("S=%s,%s,%s,%s   %i->%s\n", S[1], S[2], S[3], S[4], act[1],act[2])
-#   else
-#     for i in 1:4
-#       ac = acList[i]
-#       if(ac.navDest[1] == :T && ac.navDest[2] == "E")
-#         allok = true
-#         for j in [1:(i-1) , (i+1):4]
-#           ac2 = acList[j]
-#           if(ac2.navDest[1] == :R || (ac2.navDest[1] == :F1 && ac2.navDest[2] == "E"))
-#             allok = false
-#             break
-#           end
-#         end
-#         if allok
-#           act = (i, :R)
-#         end
-#       end
-#     end
-  end
+  S = Symbol[appendPhase(ac.navDest[1],ac.navPhase) for ac in acList]
+  act = policyFun(S)
   return act
 end
 
@@ -475,58 +454,43 @@ function getDmin!(idmin, acList::Vector{airplane})
 end
 
 #################################################
-function simulate!(acList::Vector{airplane}, Tend, stopEarly = false, runATC::Symbol = :MDP, savepath = true,  policyFun = PiStarFunSlow)
+function simulate!(acList::Vector{airplane}, Tend, policyTiming::Symbol, policyFun; stopEarly = false, savepath = true)
 #################################################
 #Running simulation,
 
+  assert(policyTiming in [:Smart, :Periodic, :None])
+
   #Total time range
   trange =  0:simdt:Tend
-
-  smartATCtiming = (runATC == :MDP || runATC == :None)
-  if runATC == :MDP_periodic
-    runATC = :MDP
-  end
 
 
   stopsim = false;
   idmin = Int64[0,0]
   dmin = Inf
   alertCount = 0
-
   flightTime = 0.
   tidx = 0
-  for t in trange
-    tidx += 1
-
+  for (tidx, t) in enumerate(trange)
     #Find out if any of the aircraft in the pattern
     #is ready for a command. This could be done more
     #concisely but list comprehensions seem to slow
     #things down!
-
-    #Find out if anyone is busy
-    noPendingCommand = true
-    for idx in 1:length(acList)
-      noPendingCommand = noPendingCommand && (acList[idx].atcCommand == :∅)
-    end
-    noPendingCommand = true
-
     readyForCommand = false
-    if(noPendingCommand) #Someone is busy, don't send a new command
-        if(smartATCtiming)
-          #Find out if any aircraft is ready for a command
-          for idx in 1:length(acList)
-            readyForCommand = readyForCommand || acList[idx].readyForATC
-          end
-        else
-          #Do it based on clock
-          readyForCommand = (tidx % 40 == 0)
-        end
+    if(policyTiming == :Smart)
+      #Find out if any aircraft is ready for a command
+      for idx in 1:length(acList)
+        readyForCommand = readyForCommand || acList[idx].readyForATC
+      end
+    elseif policyTiming == :Periodic
+      #Do it based on clock, once every 10 seconds
+      readyForCommand = (t % 10 == 0)
+    #else, keep readyForCommand = false, i.e. we won't issue any commands
     end
 
     #If any aircraft is about to transition,
     #see if there's an ATC command that should be issued!
     if(readyForCommand)
-      act = runAutoATC(acList, runATC, policyFun)
+      act = runAutoATC(acList, policyFun)
       #If we have an action to issue, pass it along
       if act != g_noaction && acList[act[1]].atcCommand == :∅
         acList[act[1]].atcCommand = act[2]
@@ -540,36 +504,27 @@ function simulate!(acList::Vector{airplane}, Tend, stopEarly = false, runATC::Sy
       move!(acList[idx], simdt, savepath)
     end
 
-
     #Compute the distance to all other boogies
     dmin = getDmin!(idmin, acList)
+    #We had an NMAC event if dmin <= 0, so break out
     if(stopEarly && dmin <= 0)
       break;
     end
 
-
+    #Accumulate the amount of time spent in non-taxi states
     for idx in 1:length(acList)
       if acList[idx].navDest[1] != :T
         flightTime += simdt
       end
     end
 
-#     allInTaxi = true
-#     for idx in 1:length(acList)
-#       allInTaxi = allInTaxi && acList[idx].navDest[1] == :T && acList[idx].navDest[2] == "S"
-#     end
-#     if(allInTaxi)
-#         tidx = -1;
-#         break
-#     end
-
   end
 
-  tmax = 1e6
+  tmax = Inf
   if(tidx != -1)
     tmax = trange[tidx]
   end
-  return (idmin, tmax, alertCount, flightTime)
+  return (idmin, tmax, alertCount, flightTime/length(acList))
 end
 
 
