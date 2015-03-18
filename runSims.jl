@@ -2,6 +2,8 @@ include("pattern.jl");
 include("CTMDP.jl")
 include("3dsim.jl"); 
 
+println("Running with nPhases=", nPhases)
+
 α = 1.0;
 
 Aopt = loadPolicy(1.,0.0f0)
@@ -106,8 +108,6 @@ startTime = time();
 end
 
 
-@time save("./results/new_3DSimResults_n"*string(nPhases)*".jld", 
-"tStat", tStat, "alertCounts", alertCounts, 
-"flightTimes", flightTimes, "tTotals", tTotals, "nNMACcounts", nNMACcounts);
+@time save("./results/new_3DSimResults_n"*string(nPhases)*".jld",  "tStat", tStat, "alertCounts", alertCounts,  "flightTimes", flightTimes, "tTotals", tTotals, "nNMACcounts", nNMACcounts);
 
 
