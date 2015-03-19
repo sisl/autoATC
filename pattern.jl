@@ -61,7 +61,7 @@ end
 #Note that this will introduce (nPhases-1) as the last phase is
 #assumed to be the state itself.
 #We also assume that the actions are given at the last phase.
-const nPhases = 1; #must be >= 1
+const nPhases = 2; #must be >= 1
 phaseFreeStates = [:R, :LDep, :LArr, :RDep, :RArr]
 *(a::Symbol, b::Symbol) = symbol(string(a, b))
 function appendPhase(s::Symbol, k::Int64)
