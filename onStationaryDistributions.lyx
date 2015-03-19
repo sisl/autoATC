@@ -591,17 +591,6 @@ leftarrow [0]_n$}
 
 
 \backslash
-State{$
-\backslash
-alpha_1[j] 
-\backslash
-leftarrow 1$}
-\end_layout
-
-\begin_layout Plain Layout
-
-
-\backslash
 For{$i 
 \backslash
 in 1:n$}
@@ -683,7 +672,7 @@ State{$
 \backslash
 alpha_1[j] 
 \backslash
-leftarrow 
+leftarrow 1 - 
 \backslash
 alpha_0^{
 \backslash
@@ -727,9 +716,9 @@ Return{$
 \backslash
 frac{
 \backslash
-alpha_1}{||
+alpha_0}{||
 \backslash
-alpha_1||}$}
+alpha_0||}$}
 \end_layout
 
 \begin_layout Plain Layout

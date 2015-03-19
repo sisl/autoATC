@@ -3,8 +3,8 @@
 function kronSum(A,B)
     b = size(B,1)
     a = size(A,2)
-    Ib = spdiagm(ones(b))
-    Ia = spdiagm(ones(a))
+    Ib = spdiagm(ones(typeof(B[1]), b))
+    Ia = spdiagm(ones(typeof(A[1]), a))
 
     return kron(A,Ib) + kron(Ia,B)
 end

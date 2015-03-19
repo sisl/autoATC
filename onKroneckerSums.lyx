@@ -427,7 +427,31 @@ Proof by induction left as an exercise to the reader :)
 
 \begin_inset Formula 
 \begin{equation}
-\underbrace{B\oplus B\dots\oplus B}_{K}=\sum_{u=0}^{K-1}P_{(n^{u},n^{K-u})}\left(I_{n^{K-1}}\otimes B\right)P_{(n^{u},n^{K-u})}^{\intercal}
+\underbrace{B\oplus B\dots\oplus B}_{K}=\sum_{u=1}^{K}P_{(n^{u},n^{K-u})}\left(I_{n^{K-1}}\otimes B\right)P_{(n^{u},n^{K-u})}^{\intercal}
+\end{equation}
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+More generally, the following relationship can be proven:
+\family roman
+\series medium
+\shape up
+\size normal
+\emph off
+\bar no
+\strikeout off
+\uuline off
+\uwave off
+\noun off
+\color none
+
+\begin_inset Formula 
+\begin{equation}
+A_{1}\oplus A_{2}\dots\oplus A_{K}=\sum_{u=1}^{K}P_{(n^{u},n^{K-u})}\left(I_{n^{K-1}}\otimes A_{i}\right)P_{(n^{u},n^{K-u})}^{\intercal}
 \end{equation}
 
 \end_inset

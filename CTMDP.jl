@@ -117,6 +117,7 @@ function S2LIDX(S::SType)
 end
 
 function LIDX2X(lidx::Int64)
+  #TODO: make this faster ...
   X_rev = xType[ind2sub(g_XDIMS, lidx) ...]
   return reverse(X_rev)
 end
@@ -130,6 +131,9 @@ end
 #Note that many LIDX map to the same CIDX
 #And that one CIDX maps to many LIDX (but we only return one)
 function LIDX2CIDX(lidx::Int64)
+  #Actually, this is the one one we really
+  #care about making faster. Might need to get rid
+  #of the reverse being done?
   X = LIDX2X(lidx);
   return X2CIDX(X);
 end
@@ -403,7 +407,7 @@ function gaussSeidel!(Qt_list, V::Vector{Float32}, ζ::Float32, β::Float32; max
 end
 
 
-function policy_X2a(X::XType, Aopt::Vector{typeof(g_nullAct)})
+function policy_X2a_compact(X::XType, Aopt::Vector{typeof(g_nullAct)})
   Xperm = sortperm(X)
   X_cidx = X2CIDX(X)
 
@@ -415,11 +419,19 @@ function policy_X2a(X::XType, Aopt::Vector{typeof(g_nullAct)})
     act = [int8(pidx), compactAct[2]]
   end
 
-  act = compAct2extAct(act,X2S(X))
-
+  #This is still in compact form
   return act
 
 end
+
+
+function policy_X2a(X::XType, Aopt::Vector{typeof(g_nullAct)})
+  #Get the compact form representation
+  act = policy_X2a_compact(X, Aopt)
+  #Trasnform it to the extended form
+  return compAct2extAct(act,X2S(X))
+end
+
 function policy_S2a(S::SType, Aopt::Vector{typeof(g_nullAct)})
   return policy_X2a(S2X(S),Aopt)
 end
