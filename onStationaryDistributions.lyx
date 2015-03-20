@@ -591,6 +591,17 @@ leftarrow [0]_n$}
 
 
 \backslash
+State{$
+\backslash
+alpha_1[j] 
+\backslash
+leftarrow 1$}
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
 For{$i 
 \backslash
 in 1:n$}
@@ -605,6 +616,15 @@ State{$q
 leftarrow Q_{
 \backslash
 pi(i)}[i,:]$}
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+State{$q[j] 
+\backslash
+leftarrow w[j]$}
 \end_layout
 
 \begin_layout Plain Layout
@@ -631,26 +651,15 @@ leftarrow 0$}
 
 
 \backslash
-State{$z 
-\backslash
-leftarrow 
-\backslash
-alpha_0 
-\backslash
-odot q$}
-\end_layout
-
-\begin_layout Plain Layout
-
-
-\backslash
 State{$
 \backslash
 alpha_1 
 \backslash
 leftarrow 
 \backslash
-alpha_1 - z$}
+alpha_1 - 
+\backslash
+alpha_0[i] q$}
 \end_layout
 
 \begin_layout Plain Layout
@@ -662,21 +671,6 @@ alpha_1 - z$}
 
 \backslash
 EndFor
-\end_layout
-
-\begin_layout Plain Layout
-
-
-\backslash
-State{$
-\backslash
-alpha_1[j] 
-\backslash
-leftarrow 1 - 
-\backslash
-alpha_0^{
-\backslash
-intercal}w$}
 \end_layout
 
 \begin_layout Plain Layout
@@ -772,8 +766,8 @@ ref{diq}
 \end_layout
 
 \begin_layout Itemize
-Unlike Gauss-Seidel, this requires storing double-storage since we can't
- do this in place.
+Unlike Gauss-Seidel, this requires double-storage since we can't do this
+ in place.
  
 \end_layout
 
@@ -813,8 +807,36 @@ th row of
 The one hickup is that for factored CTMDPs, we cannot swap the order of
  the actions (unlike in Value Iteration).
  This creates a slight complexity since our methodology for finding rows
- of Kronecker sums assumed a certain structure...
- To be continued ...
+ of Kronecker sums assumed a certain structure.
+ Luckily, it turns out that the result we had can be generalized as follow:
+\end_layout
+
+\begin_layout Standard
+
+\family roman
+\series medium
+\shape up
+\size normal
+\emph off
+\bar no
+\strikeout off
+\uuline off
+\uwave off
+\noun off
+\color none
+\begin_inset Formula 
+\begin{equation}
+A_{1}\oplus A_{2}\dots\oplus A_{K}=\sum_{u=1}^{K}P_{(n^{u},n^{K-u})}\left(I_{n^{K-1}}\otimes A_{i}\right)P_{(n^{u},n^{K-u})}^{\intercal}
+\end{equation}
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Computing a given row of the above series of Kronecker sum turns out to
+ only require a small change to the algorithm that we used previously.
 \end_layout
 
 \end_body
