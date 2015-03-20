@@ -65,7 +65,7 @@ const nPhases = 2; #must be >= 1
 phaseFreeStates = [:R, :LDep, :LArr, :RDep, :RArr]
 *(a::Symbol, b::Symbol) = symbol(string(a, b))
 function appendPhase(s::Symbol, k::Int64)
-    if s in phaseFreeStates || k >= nPhases
+    if s in phaseFreeStates || k >= nPhases || k <= 0
         return s
     else
         return symbol(string("ϕ",k,"_", s))
@@ -74,6 +74,20 @@ end
 
 function phaseState(s::Symbol)
     return string(s)[1] == 'ϕ'
+end
+
+const int0offset =  int('0')
+function phaseNum(s::Symbol)
+    if s in phaseFreeStates
+        return 1
+    else
+        st = string(s)
+        if st[1] == 'ϕ'
+            return int(st[3])  - int0offset
+        else
+            return nPhases
+        end
+    end
 end
 function phaseFree(s::Symbol)
     st = string(s)
@@ -247,16 +261,28 @@ symmetrize!(xy, x -> [x[1], -x[2]])
 #############################################
 #Probability of following ATC command
 #############################################
-function weightedChoice(weights)
-    rnd = rand(rng) * sum(weights)
-    for (i, w) in enumerate(weights)
-        rnd -= w
-        if rnd < 0
+
+#Two versions for type stability ... 
+function weightedChoice(weights::Vector{Float32})
+    rnd = rand(Float32) * sum(weights)
+    for i in 1:length(weights)
+        rnd -= weights[i]
+        if rnd < 0.0f0
             return i
         end
     end
+    return length(weights)
 end
-
+function weightedChoice(weights::Vector{Float64})
+    rnd = (rand(rng)) * sum(weights)
+    for i in 1:length(weights)
+        rnd -= weights[i]
+        if rnd < 0.0
+            return i
+        end
+    end
+    return length(weights)
+end
 #############################################
 function randomChoice(from::Symbol, receivedATC::Bool, atcDesired::Symbol)
 #############################################

@@ -12,19 +12,48 @@ ctmdpPolicy = S -> policy_S2a(S, Aopt)
 
 srand(rng,uint32(1));
 
+
+
+data_2phase = load("policies/steadystatedistribution_n_2.jld")
+const α_π = data_2phase["α_π"]
+const g_XDIMS_2phase = data_2phase["g_XDIMS"]
+const g_allstates_2phase = data_2phase["g_allstates"]
+function LIDX2X_2phase(lidx::Int64)
+  #TODO: make this faster ...
+  X_rev = xType[ind2sub(g_XDIMS_2phase, lidx) ...]
+  return reverse(X_rev)
+end
+function LIDX2S_2phase(lidx::Int64)
+  X = LIDX2X_2phase(lidx)
+  return sType[(g_allstates_2phase::Vector{Symbol})[x] for x in X]
+end
+
+
+#rstart_in = ()-> [airplane(46 + (rand()-0.5)*3,s) for s in allstates[rand(3:length(allstates), 4)]];
+function rstart_in()
+     #we use the 2phase version since the weighted choices come from that ...
+     S = LIDX2S_2phase(weightedChoice(α_π))
+     return [airplane(46 + (rand(rng)-0.5)*3, s,  (phaseNum(s)-1) / nPhases) for s in S]
+     
+     #Uniform, ignores the taxi/runway states
+     #TODO: fix this
+     #return [airplane(46 + (rand()-0.5)*3,s) for s in allstates[rand(3:length(allstates), 4)]];
+end
+
 function randomStart()
-    rstart_in = ()-> [airplane(46 + (rand()-0.5)*3,s) for s in allstates[rand(3:length(allstates), 4)]];
+    
     acList = rstart_in()
 
     idmin = [0,0]
     notok = (ACLIST)-> getDmin!(idmin, ACLIST)[1] <=  0
         
+    rstrt = 0
     while(notok(acList))
+        rstrt += 1
         acList = rstart_in()
     end
     return acList
 end
-
 
 tic()
 tBatchTime = 3600*20 #Total run time per batch
@@ -108,6 +137,6 @@ startTime = time();
 end
 
 
-@time save("./results/new_3DSimResults_n"*string(nPhases)*".jld",  "tStat", tStat, "alertCounts", alertCounts,  "flightTimes", flightTimes, "tTotals", tTotals, "nNMACcounts", nNMACcounts);
+@time save("./results/steadystate_3DSimResults_n"*string(nPhases)*".jld",  "tStat", tStat, "alertCounts", alertCounts,  "flightTimes", flightTimes, "tTotals", tTotals, "nNMACcounts", nNMACcounts);
 
 

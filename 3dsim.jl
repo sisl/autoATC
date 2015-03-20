@@ -194,7 +194,7 @@ type airplane
 
 
   #Constructors
-  function airplane(airspeed, s)
+  function airplane(airspeed, s, frac)
     s = phaseFree(s)
     navOrig = (s, "S")
     navDest = (s, "E")
@@ -202,6 +202,10 @@ type airplane
     p1 = copy(posNE[navDest])
     psi = bearing(p0, p1)
     destNED = p1
+    
+    p0.n = (1-frac) * p0.n + frac* p1.n
+    p0.e = (1-frac) * p0.e + frac* p1.e
+    p0.d = (1-frac) * p0.d + frac* p1.d
 
     legDist = distance(p0,p1)
     new(airspeed, p0, psi, 0, 0, false, false,
@@ -211,7 +215,8 @@ type airplane
         legDist, 1)
 
   end
-  airplane(airspeed) = airplane(airspeed, :R)
+  airplane(airspeed, s) = airplane(airspeed, s, 0.)
+  airplane(airspeed) = airplane(airspeed, :R, 0.)
 
 end
 
