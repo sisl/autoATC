@@ -1,14 +1,15 @@
+module pattern
+
 using HDF5, JLD
+using Iterators
 
-if isdefined(current_module(),:LastMain) && isdefined(LastMain,:Iterators)
-  using LastMain.Iterators
-else
-  using Iterators
-end
+export g_noaction, g_nullAct
+export g_allstates, g_allstates_string, NextStates
+export nPhases, phaseFree, phaseNum, phaseState, appendPhase
 
+export randomChoice
 
 rng = MersenneTwister()
-
 
 ###########################################
 #problem definitions
@@ -594,4 +595,5 @@ end
 
 
 
+end
 
