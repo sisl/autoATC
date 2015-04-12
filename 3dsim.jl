@@ -3,6 +3,7 @@
 # import Base.string
 
 using airplaneType
+using SASS_sensor
 
 const simdt = 0.25
 
@@ -17,7 +18,8 @@ end
 
 
 #################################################
-function simulate!(acList::Vector{airplane}, Tend, policyTiming::Symbol, policyFun; stopEarly = false, savepath = true)
+function simulate!(acList::Vector{airplane}, Tend, policyTiming::Symbol, policyFun; 
+                   stopEarly = false, savepath = true, savemeasurements = false)
 #################################################
 #Running simulation,
 
@@ -33,6 +35,9 @@ function simulate!(acList::Vector{airplane}, Tend, policyTiming::Symbol, policyF
   alertCount = 0
   flightTime = 0.
   tidx = 0
+  
+  measurements = [ne_psi() for i in 1:length(acList), j in 1:length(trange)]
+  
   for (tidx, t) in enumerate(trange)
     #Find out if any of the aircraft in the pattern
     #is ready for a command. This could be done more
@@ -63,7 +68,8 @@ function simulate!(acList::Vector{airplane}, Tend, policyTiming::Symbol, policyF
 
     #Fly pattern logic for all aircraft
     for idx in 1:length(acList)
-      flyPattern!(acList[idx], simdt, savepath)
+      flyPattern!(acList[idx], simdt, savepath)      
+      SASS_sense!(measurements[idx, tidx], acList[idx])
     end
 
     #Compute the distance to all other boogies
@@ -86,7 +92,7 @@ function simulate!(acList::Vector{airplane}, Tend, policyTiming::Symbol, policyF
   if(tidx != -1)
     tmax = trange[tidx]
   end
-  return (idmin, tmax, alertCount, flightTime/length(acList))
+  return (idmin, tmax, alertCount, flightTime/length(acList), measurements)
 end
 
 
