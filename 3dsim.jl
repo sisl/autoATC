@@ -34,10 +34,14 @@ function simulate!(acList::Vector{airplane}, Tend, policyTiming::Symbol, policyF
   dmin = Inf
   alertCount = 0
   flightTime = 0.
-  tidx = 0
   
-  measurements = [ne_psi() for i in 1:length(acList), j in 1:length(trange)]
+  measurements = [ne_psi() for i in 1:length(acList), j in 1:(length(trange)+1)]
   
+  for acIdx in 1:length(acList)
+    SASS_sense!(measurements[acIdx,1], acList[acIdx])
+  end
+  
+  tmax = Tend
   for (tidx, t) in enumerate(trange)
     #Find out if any of the aircraft in the pattern
     #is ready for a command. This could be done more
@@ -68,15 +72,15 @@ function simulate!(acList::Vector{airplane}, Tend, policyTiming::Symbol, policyF
 
     #Fly pattern logic for all aircraft
     for idx in 1:length(acList)
-      flyPattern!(acList[idx], simdt, savepath)      
-      SASS_sense!(measurements[idx, tidx], acList[idx])
+      flyPattern!(acList[idx], simdt, savepath)
+      SASS_sense!(measurements[idx, tidx+1], acList[idx])
     end
 
     #Compute the distance to all other boogies
     dmin = getDmin!(idmin, acList)
     #We had an NMAC event if dmin <= 0, so break out
     if(stopEarly && dmin <= 0)
-      break;
+      tmax = t;
     end
 
     #Accumulate the amount of time spent in non-taxi states
@@ -88,10 +92,6 @@ function simulate!(acList::Vector{airplane}, Tend, policyTiming::Symbol, policyF
 
   end
 
-  tmax = Inf
-  if(tidx != -1)
-    tmax = trange[tidx]
-  end
   return (idmin, tmax, alertCount, flightTime/length(acList), measurements)
 end
 

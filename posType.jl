@@ -13,6 +13,7 @@ type pos
     new(n,e,d)
   end
   pos() = pos(0., 0., 0.)
+  pos(ned::Vector{Float64}) = pos(ned[1], ned[2], ned[3])
 end
 #################################################
 

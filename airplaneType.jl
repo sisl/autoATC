@@ -3,21 +3,36 @@ module airplaneType
 using posType
 using pattern
 
-export airplane, destination, move!, flyPattern!, getDmin!
+export airplane, move!, flyPattern!, getDmin!
 
 #Parameters
-const transThresh = 50.
-const maxNoise = 150. #FIXME: Make this configurable per airplane? ~500 ft
-const maxNoiseAlt = 20. #FIXME: Make this configurable per airplane? ~60 ft
-const taxiSpeed = 5. #default taxi speed
+type simParsType
+    transThresh::Float64
+    maxNoise::Float64 #FIXME: Make this configurable per airplane? ~500 ft
+    maxNoiseAlt::Float64 #FIXME: Make this configurable per airplane? ~60 ft
+    taxiSpeed::Float64 #default taxi speed
+    
+    function simParsType()
+        new(50., #transThresh
+           200., #maxNoise ~500ft
+           20.,  #maxNoise altitude ~60ft
+           5., #taxi speed
+           )
+    end
+end
+const simPars=simParsType()
 
+
+const DebugOn = false
 #################################################
 #Parametrize things with a bearing and a length,
 #then we will populate the positions as a tree
 #################################################
 const RefLength = 2000/3;
 
-psi_L = Dict([:T], [(0.5, 180)])
+rhotheta = (dn, de) -> (sqrt(de^2+dn^2), rad2deg(atan2(de,dn)))
+
+psi_L = Dict([:T], [(0.5, 180.)])
 psi_L[:R] = (1, 90)
 psi_L[:U1] = (5, 90);
                 psi_L[:LX1] = (2, 0);
@@ -27,7 +42,7 @@ psi_L[:F1] = (4, 90); #Back on runway
 
 
 psi_L[:F0] = (3, 90);
-psi_L[:GO] = (1.5, 60);
+psi_L[:GO] = rhotheta(0.3, 2) #(1.5, 40);
 
 
 psi_L[:U2] = (3, 90);
@@ -36,7 +51,7 @@ psi_L[:LD0] = (3, 270); psi_L[:LD3] = (3, 270);
           psi_L[:LB2] = (2, 180);
 
 psi_L[:LDep] = (10, 45);
-psi_L[:LArr] = (10, 270);
+psi_L[:LArr] = rhotheta(-3, -16) #3 south, 16 west
 
 
 
@@ -119,7 +134,8 @@ type airplane
   #this just keeps track of the history!
   path::Vector{pos}
   sLocHist::Vector{Symbol}
-  
+  destHist::Vector{pos}
+  noiseHist::Vector{pos}
   #Leg distance
   legDist::Float64
   navPhase::Int64
@@ -143,7 +159,8 @@ type airplane
     new(airspeed, p0, psi, 0, 0, false, false,
         airspeed, pos(0,0,0),
         navDest, destNED,
-        :∅, [copy(p0)], [s],
+        :∅,
+        [copy(p0)], [s], [copy(p1)], [pos()],
         legDist, 1)
 
   end
@@ -153,22 +170,13 @@ type airplane
 end
 
 
-#################################################
-#Find out where this airplane is headed
-#noise is already accounted for
-#################################################
-function destination(a::airplane)
-  return a.destNED #posNE[a.navDest] + a.navNoise
-end
-
-
 #"Rigid" body dynamics of 3DOF sim
 #################################################
 function move!(ac::airplane, dt::Float64, savepath::Bool = true)
 #################################################
   #Slow down if we are taxiing
   if ac.navDest[1] == :T
-    ac.airspeed = taxiSpeed
+    ac.airspeed = simPars.taxiSpeed
   #Accelerate on the runway to takeoff
   elseif ac.navDest[1] == :R && ac.navDest[2] == "E"
     ac.airspeed = min(ac.airspeed + 1, ac.VS1)
@@ -190,8 +198,6 @@ function move!(ac::airplane, dt::Float64, savepath::Bool = true)
     push!(ac.path,copy(ac.posNED))
     push!(ac.sLocHist, ac.navDest[1])
   end
-  #push!(ac.psiHist,ac.psi)
-  #push!(ac.rollHist,ac.roll)
 
 end
 
@@ -220,7 +226,7 @@ function aviate!(ac::airplane, altitude_desired::Float64, heading_desired::Float
 
   #Special case on the ground,
   #just point in the heading we want directly!
-  if(ac.airspeed <= taxiSpeed)
+  if(ac.airspeed <= simPars.taxiSpeed)
     ac.psi = heading_desired
     ac.roll = 0.
   end
@@ -231,13 +237,13 @@ end
 function navigate!(ac::airplane)
 #################################################
   p0 = ac.posNED
-  p1 = destination(ac)
+  p1 = ac.destNED
 
   #We will signal we are ready for transition
   #if the distance to the target is below a threshold
   #If the target is @ "E", we are also ready to transition
-  d = distance(p1, ac.posNED)
-  ac.readyToTransition = (d < transThresh)
+  d = distance(p1, p0)
+  ac.readyToTransition = (d < simPars.transThresh)
   ac.readyForATC = ac.readyToTransition && ac.navDest[2] == "E"
   
   ac.navPhase = min(max(int(ceil((1 - d/ ac.legDist) * nPhases)), 1) , nPhases)  
@@ -269,11 +275,22 @@ function transition!(ac::airplane)
 
     #This is where we inject some noise to make
     #Things more 'realistic'. Except, No Noise on the runway!
-    if ac.navDest == (:F1, "E") || s == :R || s == :T
+    if ac.navDest == (:F1, "E") || s == :R
       ac.navNoise = pos(0,0,0)
     else
-      ned = randn(pattern.rng,3) .* Float64[maxNoise, maxNoise, maxNoiseAlt]
-      ac.navNoise = pos(ned...)
+      ned = randn(pattern.rng,3) .* Float64[simPars.maxNoise, simPars.maxNoise, simPars.maxNoiseAlt]
+      
+      #Departure states get a bit more noise
+      if s == :LDep || s == :RDep
+        ned[1] *= 5
+        ned[2] *= 5
+      #Taxi state gets less noise
+      elseif s == :T
+        ned[1] *= 0.1
+        ned[2] *= 0.1
+      end
+      
+      ac.navNoise = pos(ned)
     end
   else
     #If we arrived to the end of a leg, we need to decide where to go next
@@ -293,7 +310,7 @@ function transition!(ac::airplane)
     if (s == sn && (s == :LDep || s == :RDep))
       d = "E"
       ac.navNoise = project(pos(0,0,0),
-                            30 * ac.airspeed + transThresh,
+                            30 * ac.airspeed + simPars.transThresh,
                             rand(pattern.rng)*(2*pi));
     #Also for the go around state, we should head straight
     #to the end of the leg!
@@ -305,6 +322,11 @@ function transition!(ac::airplane)
   end
 
   ac.destNED = posNE[ac.navDest] + ac.navNoise
+  
+  if(ac.navDest == (:GO, "E"))
+    #Go around state is either to left or to right
+    ac.destNED.n *= rand(pattern.rng) > 0.5 ? -1. : 1.
+  end
 
   #Compute total distance to be travelled. This will be used
   #to guess what phase the aircraft are in. 
@@ -316,8 +338,14 @@ function transition!(ac::airplane)
   
   #Don't waste navigating towards the start point if it's right next
   #to where we are going!
-  if(ac.legDist <= transThresh)
+  if(ac.legDist <= simPars.transThresh)
     transition!(ac)
+    return;
+  end
+  
+  if(DebugOn)
+    push!(ac.destHist, copy(ac.destNED))
+    push!(ac.noiseHist, copy(ac.navNoise))
   end
 end
 
