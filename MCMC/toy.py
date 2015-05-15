@@ -12,6 +12,13 @@ __all__ = ['state_origin', 'state_dest', 'frac', 'x_nodes', 'y_nodes',
            'xy_points', 'dataScore']
 
 
+
+def seeP(P_array):
+    Pleft = np.row_stack([p.value for p in P_array])
+    p = 1-np.sum(Pleft, axis=1)
+    return np.column_stack([Pleft, p])
+
+
 x_true = np.array([0., 0., -10., 10.])
 y_true = np.array([0., 10., 14., 7.])
 
@@ -39,12 +46,11 @@ xy_meas = np.column_stack([x_meas, y_meas]);
 
 Nnodes= 4
 #state_origin = pymc.DiscreteUniform('origin',    lower=0, upper=Nnodes-1, size=Nsamples)
-state_origin = np.random.randint(low=0, high=Nnodes, size=Nsamples)
+state_origin = np.array(range(Nnodes)) #np.random.randint(low=0, high=Nnodes, size=Nsamples)
 
 #state_dest = pymc.DiscreteUniform('destination', lower=0, upper=Nnodes-1, size=Nsamples)
 
 #frac = pymc.Uniform('fraction', lower=0, upper=1, size=Nsamples)
-frac = np.random.rand(Nsamples)
 
 x_nodes = np.array([pymc.Uniform('x_nodes_%i'%i, lower=-15., upper=15.) for i in range(Nnodes)])
 y_nodes = np.array([pymc.Uniform('y_nodes_%i'%i, lower=-15., upper=15.) for i in range(Nnodes)])
@@ -74,7 +80,10 @@ def P_s_tp1(P=Prows, st=state_origin):
   return np.array([np.concatenate([p.value, np.array([1.-sum(p.value)])]) for p in Prows[st]])
   
   
-s_tp1 = np.array([pymc.Multinomial('multi_%i'%i, p=P_s_tp1[i], n=1, plot=False) for i in range(Nsamples)])
+Nsamples_multi = Nsamples/Nnodes
+s_tp1 = np.array([pymc.Multinomial('multi_%i'%i, p=P_s_tp1[i], n=Nsamples_multi, plot=False) for i in range(Nnodes)])
+
+frac = np.random.rand(Nsamples_multi)
 
 @pymc.deterministic
 def xy_points(s_o=state_origin, s_t1=s_tp1, f=frac,
@@ -83,15 +92,34 @@ def xy_points(s_o=state_origin, s_t1=s_tp1, f=frac,
     #Note that we manually define the Dirichlet as a parent (Prows)
     #Somehow it doesn't recognize that!
     s_tlist = np.array(range(Nnodes))
-    s_d = np.array([np.dot(s_tlist, v) for v in s_t1])
-
-    x_o = x_n[s_o]; x_d = x_n[s_d]
-    y_o = y_n[s_o]; y_d = y_n[s_d]
-
-    x_m = (x_d-x_o)*f + x_o
-    y_m = (y_d-y_o)*f + y_o
     
-    return np.column_stack([x_m,y_m])
+    xy_m = np.empty((Nsamples_multi*Nnodes, 2))
+    popidx = range(Nsamples_multi);
+    for s_origin in s_o:
+        x_o = x_n[s_origin]; 
+        y_o = y_n[s_origin];
+        
+        #s_d = np.array([np.dot(s_tlist, v) for v in s_t1[s_origin]])
+        s_d = [ [s for i in range(v)] for (s,v) in enumerate(s_t1[s_origin])]
+        #turn into numpy array
+        s_d = np.array([s for ll in s_d for s in ll])
+        
+        #grab destination nodes
+        x_d = x_n[s_d]
+        y_d = y_n[s_d]
+        
+        #compute measurements based on fractions
+        x_m = (x_d-x_o)*f + x_o
+        y_m = (y_d-y_o)*f + y_o
+    
+        #populate output
+        xy_m[popidx, :] = np.column_stack([x_m,y_m])
+        popidx = range(popidx[-1]+1, popidx[-1]+1+Nsamples_multi)
+#         import ipdb
+#         ipdb.set_trace()
+
+    
+    return xy_m
     
     
       
@@ -121,7 +149,3 @@ def sample(this):
         this.random()
     return this.value
 
-def seeP(P_array):
-    Pleft = np.row_stack([p.value for p in P_array])
-    p = 1-np.sum(Pleft, axis=1)
-    return np.column_stack([Pleft, p])
