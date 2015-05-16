@@ -19,10 +19,9 @@ def seeP(P_array):
     return np.column_stack([Pleft, p])
 
 
-x_true = np.array([-5., 0., -10., 10., 4.])
-y_true = np.array([0., 10., 14., 7., -5.])
-
-P_true = np.array( [[0., .4, .2]])
+x_true = np.array([0., 0.,  10., 10., 10.,   0., -10., -10., -10.])
+y_true = np.array([0., 10., 10., 0., -10., -10., -10.,   0., 10.])
+Nnodes_true = len(x_true)
 
 Nsamples_data = 400
 
@@ -36,8 +35,11 @@ Nsamples_data = 400
 #       d = 3
 #     s_d[idx] =  np.random.random_integers(i+1, d, np.sum(idx))    
 
-s_o = np.random.random_integers(0, len(x_true)-1, Nsamples_data)    
-s_d = np.random.random_integers(0, 1, Nsamples_data)
+s_o = np.random.random_integers(0, Nnodes_true-1, Nsamples_data)    
+s_d = s_o + 1;
+s_d[s_d >= Nnodes_true] = 1
+
+
 
 x_orig = x_true[s_o]; y_orig = y_true[s_o]
 x_dest = x_true[s_d]; y_dest = y_true[s_d]
@@ -45,6 +47,9 @@ x_dest = x_true[s_d]; y_dest = y_true[s_d]
 fracs_true = np.random.random_sample(Nsamples_data) 
 x_meas = (x_dest - x_orig) * fracs_true + x_orig + np.random.randn(Nsamples_data)*0.25
 y_meas = (y_dest - y_orig) * fracs_true + y_orig + np.random.randn(Nsamples_data)*0.25
+
+
+
 xy_meas = np.column_stack([x_meas, y_meas]);
 
 
