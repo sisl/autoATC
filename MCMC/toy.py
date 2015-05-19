@@ -2,7 +2,6 @@
 import matplotlib
 import numpy as np
 import matplotlib.pyplot as plt
-import scipy.spatial.distance as scipyDist
 import pymc 
 from numpy import array, empty
 from numpy.random import randint
@@ -13,13 +12,25 @@ __all__ = ['state_origin', 'state_dest', 'frac', 'x_nodes', 'y_nodes',
 
 
 
-def seeP(P_array):
+def seeP(P_array, k=None):
     Pleft = np.row_stack([p.value for p in P_array])
-    p = 1-np.sum(Pleft, axis=1)
-    return np.column_stack([Pleft, p])
+    pright = 1-np.sum(Pleft, axis=1)
+    P = np.column_stack([Pleft, pright])
+    
+    if k != None:
+        for r in range(P.shape[0]):
+            p = P[r, :]
+            p_sort_idx = np.argsort(p)[::-1] #decreasing order of probabilities
+            #Only keep the Vk highest probabilities
+            p[p_sort_idx[k:]] = 0. 
+            #renomalize so that probabilities add up to 1!
+            P[r, :] = p / p.sum();
+            
+        
+    return P 
 
 
-x_true = np.array([0., 0.,  10., 10., 10.,   0., -10., -10., -10.])
+x_true = np.array([0., 0.,  10., 10., 10.,   0., -10.,  -5., -10.])
 y_true = np.array([0., 10., 10., 0., -10., -10., -10.,   0., 10.])
 Nnodes_true = len(x_true)
 
@@ -53,7 +64,7 @@ y_meas = (y_dest - y_orig) * fracs_true + y_orig + np.random.randn(Nsamples_data
 xy_meas = np.column_stack([x_meas, y_meas]);
 
 
-Nnodes= 5
+Nnodes= 8
 Nsamples = 300
 #state_origin = pymc.DiscreteUniform('origin',    lower=0, upper=Nnodes-1, size=Nsamples)
 state_origin = np.array(range(Nnodes)) #np.random.randint(low=0, high=Nnodes, size=Nsamples)
@@ -79,8 +90,12 @@ y_nodes = np.array([pymc.Uniform('y_nodes_%i'%i, lower=-15., upper=15.) for i in
 
 Prows =  np.empty(Nnodes, dtype=object)
 for i in range(Nnodes):
-    t = np.ones(Nnodes)*10; t[i] = 0.1
+    t = np.ones(Nnodes)*10; t[i] = 0.5
     Prows[i] = pymc.Dirichlet('Dir_%i'%i, theta=t)
+
+
+#Cardinality / Sparsity of the transition matrices
+Vk = pymc.DiscreteUniform('Sparsity', lower=1, upper=min(5, Nnodes), size=Nnodes)
 
 @pymc.deterministic
 def P_s_tp1(P=Prows, st=state_origin):
@@ -92,10 +107,13 @@ def P_s_tp1(P=Prows, st=state_origin):
   
 Nsamples_multi = Nsamples/Nnodes
 # s_tp1 = np.array([pymc.Multinomial('multi_%i'%i, p=P_s_tp1[i], n=Nsamples_multi, plot=False) for i in range(Nnodes)])
+#frac = np.linspace(0, 1, Nsamples_multi) 
 frac = np.random.rand(Nsamples_multi)
 
+
+
 @pymc.deterministic
-def xy_points(s_o=state_origin, f=frac,
+def xy_points(s_o=state_origin, Vk=Vk, # f = frac,
               x_n=x_nodes, y_n=y_nodes, 
               Prows=Prows): 
     #Note that we manually define the Dirichlet as a parent (Prows)
@@ -112,10 +130,24 @@ def xy_points(s_o=state_origin, f=frac,
 #         #turn into numpy array
 #         s_d = np.array([s for ll in s_d for s in ll])
 
-        counts = (Prows[s_origin] * Nsamples_multi).astype(int)
+        p = np.append(Prows[s_origin], 1.-Prows[s_origin].sum())
+        p_sort_idx = np.argsort(p)[::-1] #decreasing order of probabilities
+        #Only keep the Vk highest probabilities
+        k = Vk[s_origin]
+        p[p_sort_idx[k:]] = 0. 
+        #renomalize so that probabilities add up to 1!
+        p /= p.sum();
         
+
+        counts = np.round(p * Nsamples_multi).astype(int)
+        while counts.sum() > Nsamples_multi:
+            counts[p_sort_idx[0]] -= 1;
+            
+        while counts.sum() < Nsamples_multi:
+            counts[p_sort_idx[k-1]] += 1;
+            
         #counts = np.round(np.round(Prows[s_origin], 3) * Nsamples_multi).astype(int)        
-        counts = np.append(counts, Nsamples_multi - counts.sum())
+        #counts = np.append(counts, Nsamples_multi - counts.sum())
         
         s_d = np.array([s for (s, c) in enumerate(counts) for i in range(c)]) 
         
@@ -123,6 +155,9 @@ def xy_points(s_o=state_origin, f=frac,
         x_d = x_n[s_d]
         y_d = y_n[s_d]
         
+        #
+        f = np.concatenate([np.linspace(0., 1., (s_d == c).sum()) for c in range(Nnodes)])
+
         #compute measurements based on fractions
         x_m = (x_d-x_o)*f + x_o
         y_m = (y_d-y_o)*f + y_o
@@ -139,14 +174,31 @@ def xy_points(s_o=state_origin, f=frac,
     
       
 
+from scipy.misc import logsumexp
+import scipy.spatial.distance as scipyDist
 
 def score(samples, data):
     d2 = scipyDist.cdist(samples, data, 'sqeuclidean')
+    
+
     #only keep the closest. Maybe consider the 3 closest points?
-    d2_0 = np.min(d2, axis=0)
-    d2_1 = np.min(d2, axis=1)
+    
+    #return logsumexp(-d2) 
+    #these are closest points to the data
+    d2_data = np.min(d2, axis=0)
+    sigma2_data = 1.
+    
+    #these are closest points to samples
+    d2_samples = np.min(d2, axis=1)
+    sigma2_samples = 20.
+    #we want a smaller sigma2_samples since we don't expect samples
+    #to just be out there on their own! We expect them to be close to the
+    #data somehow. 
+    
+    
     #assuming a normal likelihood, loglikelihood is -val
-    return -np.sum(d2_0) - np.sum(d2_1)
+    return -d2_data.sum()/sigma2_data - d2_samples.sum()/sigma2_samples
+
 
 @pymc.potential(verbose=True)
 def dataScore(samples=xy_points):
