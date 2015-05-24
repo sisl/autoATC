@@ -22,7 +22,12 @@ def seeP(P_array, k=None):
             p = P[r, :]
             p_sort_idx = np.argsort(p)[::-1] #decreasing order of probabilities
             #Only keep the Vk highest probabilities
-            p[p_sort_idx[k:]] = 0. 
+            if hasattr(k,'__len__'):
+                kidx = k[r]
+            else:
+                kidx = k
+                
+            p[p_sort_idx[kidx:]] = 0. 
             #renomalize so that probabilities add up to 1!
             P[r, :] = p / p.sum();
             
@@ -97,12 +102,9 @@ for i in range(Nnodes):
 #Cardinality / Sparsity of the transition matrices
 Vk = pymc.DiscreteUniform('Sparsity', lower=1, upper=min(5, Nnodes), size=Nnodes)
 
-@pymc.deterministic
-def P_s_tp1(P=Prows, st=state_origin):
-  #dd = Prows[st].value
-  #p_last = np.array([1. - np.sum(dd)])
-  #p = np.concatenate([dd, p_last])
-  return np.array([np.concatenate([p.value, np.array([1.-sum(p.value)])]) for p in Prows[st]])
+#Vk = pymc.Geometric('Sparsity', p = 0.7, size=Nnodes)
+
+
   
   
 Nsamples_multi = Nsamples/Nnodes
@@ -133,7 +135,8 @@ def xy_points(s_o=state_origin, Vk=Vk, # f = frac,
         p = np.append(Prows[s_origin], 1.-Prows[s_origin].sum())
         p_sort_idx = np.argsort(p)[::-1] #decreasing order of probabilities
         #Only keep the Vk highest probabilities
-        k = Vk[s_origin]
+        k = min(Nnodes, Vk[s_origin])
+        
         p[p_sort_idx[k:]] = 0. 
         #renomalize so that probabilities add up to 1!
         p /= p.sum();
@@ -176,8 +179,7 @@ def xy_points(s_o=state_origin, Vk=Vk, # f = frac,
 
 from scipy.misc import logsumexp
 import scipy.spatial.distance as scipyDist
-
-def score(samples, data):
+def scoreSimple(samples, data):
     d2 = scipyDist.cdist(samples, data, 'sqeuclidean')
     
 
@@ -200,9 +202,55 @@ def score(samples, data):
     return -d2_data.sum()/sigma2_data - d2_samples.sum()/sigma2_samples
 
 
+
+
+
+
+
+import scipy
+Sigma_x = .01*np.eye(2);
+Sigma_z = .01*np.eye(2);
+T_xz = scipy.linalg.inv(Sigma_x + Sigma_z);
+T_xx = scipy.linalg.inv(Sigma_x + Sigma_x);
+T_zz = scipy.linalg.inv(Sigma_z + Sigma_z);
+
+T_xz_sq = scipy.linalg.sqrtm(T_xz)
+T_xx_sq = scipy.linalg.sqrtm(T_xx)
+T_zz_sq = scipy.linalg.sqrtm(T_zz)
+
+T_xz_sq_det = scipy.linalg.det(T_xz_sq)
+T_xx_sq_det = scipy.linalg.det(T_xx_sq)
+T_zz_sq_det = scipy.linalg.det(T_zz_sq)
+def scoreKernel(x, z): #x are samples, z is measured data
+    k = 2
+    n = x.shape[0]
+    m = z.shape[0]
+    
+    pi_f = (2*np.pi)**(k/2.)
+        
+          
+    xt = np.dot(x, T_xz_sq)
+    zt = np.dot(z, T_xz_sq)
+    D_xz = scipyDist.cdist(xt,zt,'sqeuclidean'); D_xz *= -0.5;
+    
+    v = -2*(np.exp(D_xz).sum()*T_xz_sq_det/n/m/pi_f)   
+     
+    
+    xt = np.dot(x, T_xx_sq)
+    D_xx = scipyDist.pdist(xt,'sqeuclidean'); D_xx *= -0.5;
+     
+    zt = np.dot(z, T_zz_sq)
+    D_zz = scipyDist.pdist(zt,'sqeuclidean'); D_zz *= -0.5;
+    v += ((2*np.exp(D_xx).sum() + n) *T_xx_sq_det/n/n/pi_f + (2*np.exp(D_zz).sum()+m)*T_zz_sq_det/m/m/pi_f )
+      
+    return -v*50000
+    
+
 @pymc.potential(verbose=True)
 def dataScore(samples=xy_points):
-    return score(samples, xy_meas)
+    return scoreSimple(samples, xy_meas)
+    #return scoreKernel(samples, xy_meas)
+    
     
 
 
