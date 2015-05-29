@@ -3,6 +3,7 @@ import matplotlib
 import numpy as np
 import matplotlib.pyplot as plt
 import pymc 
+import networkx as nx
 from numpy import array, empty
 from numpy.random import randint
 
@@ -69,10 +70,8 @@ y_meas = (y_dest - y_orig) * fracs_true + y_orig + np.random.randn(Nsamples_data
 xy_meas = np.column_stack([x_meas, y_meas]);
 
 
-Nnodes= 4
+Nnodes= 7
 Nsamples = 300
-#state_origin = pymc.DiscreteUniform('origin',    lower=0, upper=Nnodes-1, size=Nsamples)
-state_origin = np.array(range(Nnodes)) #np.random.randint(low=0, high=Nnodes, size=Nsamples)
 
 #state_dest = pymc.DiscreteUniform('destination', lower=0, upper=Nnodes-1, size=Nsamples)
 
@@ -100,7 +99,7 @@ for i in range(Nnodes):
 
 
 #Cardinality / Sparsity of the transition matrices
-Vk = pymc.DiscreteUniform('Sparsity', lower=1, upper=min(5, Nnodes), size=Nnodes)
+Vk = pymc.DiscreteUniform('Sparsity', lower=1, upper=min(4, Nnodes), size=Nnodes)
 
 #Vk = pymc.Geometric('Sparsity', p = 0.7, size=Nnodes)
 
@@ -113,34 +112,51 @@ Nsamples_multi = Nsamples/Nnodes
 frac = np.random.rand(Nsamples_multi)
 
 
-
 @pymc.deterministic
-def xy_points(s_o=state_origin, Vk=Vk, # f = frac,
+def adjMatrix(Prows = Prows, Vk = Vk):
+    P = np.empty((Nnodes, Nnodes))
+    
+    for (row, s_o) in enumerate(np.arange(Nnodes)):
+        p = np.append(Prows[s_o], 1.-Prows[s_o].sum())
+        p_sort_idx = np.argsort(p)[::-1] #decreasing order of probabilities
+        #Only keep the Vk highest probabilities
+        k = min(Nnodes, Vk[s_o])
+        p[p_sort_idx[k:]] = 0. 
+        #renomalize so that probabilities add up to 1!
+        p /= p.sum();
+        P[row, :] = p
+        
+    return P
+    
+    
+@pymc.potential(verbose=1)
+def adjMatrixPotential(P=adjMatrix):
+    G = nx.Graph(P)
+        
+    degVals = np.array(nx.degree(G).values())
+    
+    if degVals.max() > 4:
+        return -np.inf
+    
+    return -((degVals**2).sum())
+    
+@pymc.deterministic
+def xy_points(Vk=Vk, # f = frac,
               x_n=x_nodes, y_n=y_nodes, 
-              Prows=Prows): 
-    #Note that we manually define the Dirichlet as a parent (Prows)
-    #Somehow it doesn't recognize that!
+              P=adjMatrix): 
     
     xy_m = np.empty((Nsamples_multi*Nnodes, 2))
     popidx = range(Nsamples_multi);
     
-    for s_origin in s_o:
-        x_o = x_n[s_origin]; 
-        y_o = y_n[s_origin];
+    for (row, s_o) in enumerate(np.arange(Nnodes)):
+        x_o = x_n[s_o]; 
+        y_o = y_n[s_o];
         
-#         s_d = [ [s for i in range(v)] for (s,v) in enumerate(s_t1[s_origin])]
-#         #turn into numpy array
-#         s_d = np.array([s for ll in s_d for s in ll])
-
-        p = np.append(Prows[s_origin], 1.-Prows[s_origin].sum())
-        p_sort_idx = np.argsort(p)[::-1] #decreasing order of probabilities
-        #Only keep the Vk highest probabilities
-        k = min(Nnodes, Vk[s_origin])
-        
-        p[p_sort_idx[k:]] = 0. 
         #renomalize so that probabilities add up to 1!
-        p /= p.sum();
+        p = P[row, :];
         
+        k = min(Nnodes, Vk[s_o])
+        p_sort_idx = np.argsort(p)[::-1] #decreasing order of probabilities
 
         counts = np.round(p * Nsamples_multi).astype(int)
         while counts.sum() > Nsamples_multi:
@@ -149,7 +165,7 @@ def xy_points(s_o=state_origin, Vk=Vk, # f = frac,
         while counts.sum() < Nsamples_multi:
             counts[p_sort_idx[k-1]] += 1;
             
-        #counts = np.round(np.round(Prows[s_origin], 3) * Nsamples_multi).astype(int)        
+        #counts = np.round(np.round(Prows[s_o], 3) * Nsamples_multi).astype(int)        
         #counts = np.append(counts, Nsamples_multi - counts.sum())
         
         s_d = np.array([s for (s, c) in enumerate(counts) for i in range(c)]) 
