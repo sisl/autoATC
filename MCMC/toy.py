@@ -69,7 +69,7 @@ y_meas = (y_dest - y_orig) * fracs_true + y_orig + np.random.randn(Nsamples_data
 xy_meas = np.column_stack([x_meas, y_meas]);
 
 
-Nnodes= 8
+Nnodes= 4
 Nsamples = 300
 #state_origin = pymc.DiscreteUniform('origin',    lower=0, upper=Nnodes-1, size=Nsamples)
 state_origin = np.array(range(Nnodes)) #np.random.randint(low=0, high=Nnodes, size=Nsamples)
@@ -208,8 +208,8 @@ def scoreSimple(samples, data):
 
 
 import scipy
-Sigma_x = .01*np.eye(2);
-Sigma_z = .01*np.eye(2);
+Sigma_x = .0001*np.eye(2);
+Sigma_z = .0001*np.eye(2);
 T_xz = scipy.linalg.inv(Sigma_x + Sigma_z);
 T_xx = scipy.linalg.inv(Sigma_x + Sigma_x);
 T_zz = scipy.linalg.inv(Sigma_z + Sigma_z);
@@ -221,35 +221,82 @@ T_zz_sq = scipy.linalg.sqrtm(T_zz)
 T_xz_sq_det = scipy.linalg.det(T_xz_sq)
 T_xx_sq_det = scipy.linalg.det(T_xx_sq)
 T_zz_sq_det = scipy.linalg.det(T_zz_sq)
+
+
+kD = 2
+pi_f = (2*np.pi)**(kD/2.)
+
+
+xt = np.dot(xy_meas, T_xx_sq)
+n = xt.shape[0]
+D_xx = scipyDist.pdist(xt,'sqeuclidean'); D_xx *= -0.5;
+vxx = 0.5*np.log((2*np.exp(D_xx).sum() + n) *T_xx_sq_det/n/n/pi_f) 
+
 def scoreKernel(x, z): #x are samples, z is measured data
-    k = 2
     n = x.shape[0]
     m = z.shape[0]
-    
-    pi_f = (2*np.pi)**(k/2.)
         
           
     xt = np.dot(x, T_xz_sq)
     zt = np.dot(z, T_xz_sq)
     D_xz = scipyDist.cdist(xt,zt,'sqeuclidean'); D_xz *= -0.5;
     
-    v = -2*(np.exp(D_xz).sum()*T_xz_sq_det/n/m/pi_f)   
+    v = -np.log(np.exp(D_xz).sum()*T_xz_sq_det/n/m/pi_f)   
      
-    
-    xt = np.dot(x, T_xx_sq)
-    D_xx = scipyDist.pdist(xt,'sqeuclidean'); D_xx *= -0.5;
-     
+        
     zt = np.dot(z, T_zz_sq)
     D_zz = scipyDist.pdist(zt,'sqeuclidean'); D_zz *= -0.5;
-    v += ((2*np.exp(D_xx).sum() + n) *T_xx_sq_det/n/n/pi_f + (2*np.exp(D_zz).sum()+m)*T_zz_sq_det/m/m/pi_f )
+    v += vxx + 0.5*np.log((2*np.exp(D_zz).sum()+m)*T_zz_sq_det/m/m/pi_f )
       
-    return -v*50000
+    return -v
+    
+    
     
 
-@pymc.potential(verbose=True)
+    
+xmin = np.min(xy_meas[:,0]);ymin = np.min(xy_meas[:,1]);
+xmax = np.max(xy_meas[:,0]);ymax = np.max(xy_meas[:,1]);  
+Ng = 100    
+x_g = np.linspace(xmin*1.2, xmax*1.2, Ng)
+y_g = np.linspace(xmin*1.2, xmax*1.2, Ng)
+xx, yy = np.meshgrid(x_g, y_g)
+xy_grid = np.column_stack([xx.flatten(), yy.flatten()])
+dz2 = (x_g[1] - x_g[0])*(y_g[1] - y_g[0])
+
+from sklearn.neighbors import KDTree, BallTree
+def KLscore(x, z, returnQlog = False, qlog = None, qlogExp = None): #x are samples (change), z is measure data (unchanged!)
+    
+    tree_d = BallTree(x)
+    plog = tree_d.kernel_density(xy_grid, h=.5, kernel='gaussian',return_log=True, rtol=.1)
+    
+    computeQlog = (qlog == None)
+    if computeQlog: 
+        tree_m = BallTree(z)
+        qlog = tree_m.kernel_density(xy_grid, h=1, kernel='gaussian',return_log=True)
+        qlogExp = np.exp(qlog)
+    
+    
+    delta_log = (qlog - plog)
+    v  = (qlogExp      * delta_log).sum()
+    v -= (np.exp(plog) * delta_log).sum() #- since we want p * (log(p)-log(q))
+    
+    v *= -0.5 * dz2; #-sign to make it work as a similarity
+    
+    if returnQlog:
+        return v, qlog
+    else:
+        return v
+
+
+(tmp, qlog_meas) = KLscore(xy_meas, xy_meas, returnQlog = True)
+qlogExp_meas = np.exp(qlog_meas)
+        
+@pymc.potential(verbose=1)
 def dataScore(samples=xy_points):
     return scoreSimple(samples, xy_meas)
     #return scoreKernel(samples, xy_meas)
+
+    #return KLscore(samples, xy_meas, qlog = qlog_meas, qlogExp= qlogExp_meas)
     
     
 
