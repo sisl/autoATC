@@ -179,6 +179,8 @@ def xy_points(s_o=state_origin, Vk=Vk, # f = frac,
 
 from scipy.misc import logsumexp
 import scipy.spatial.distance as scipyDist
+from sklearn.neighbors import KDTree, BallTree
+
 def scoreSimple(samples, data):
     d2 = scipyDist.cdist(samples, data, 'sqeuclidean')
     
@@ -202,12 +204,24 @@ def scoreSimple(samples, data):
     return -d2_data.sum()/sigma2_data - d2_samples.sum()/sigma2_samples
 
 
-
+tree_z = KDTree(xy_meas)
+def scoreSimpleFast(x,z): #x are samples (change), z is measure data (unchanged!)
+    (d2_samples, tmp) = tree_z.query(x)
+    d2_samples **= 2
+    sigma2_data = 1.
+    
+    tree_d = KDTree(x)
+    (d2_data, tmp) = tree_d.query(z)
+    d2_data **= 2
+    sigma2_samples = 20.
+        
+    return -d2_data.sum()/sigma2_data - d2_samples.sum()/sigma2_samples
 
 
 
 
 import scipy
+
 Sigma_x = .0001*np.eye(2);
 Sigma_z = .0001*np.eye(2);
 T_xz = scipy.linalg.inv(Sigma_x + Sigma_z);
@@ -232,7 +246,7 @@ n = xt.shape[0]
 D_xx = scipyDist.pdist(xt,'sqeuclidean'); D_xx *= -0.5;
 vxx = 0.5*np.log((2*np.exp(D_xx).sum() + n) *T_xx_sq_det/n/n/pi_f) 
 
-def scoreKernel(x, z): #x are samples, z is measured data
+def scoreKernel(x, z): #x are samples (change), z is measure data (unchanged!)
     n = x.shape[0]
     m = z.shape[0]
         
@@ -263,7 +277,6 @@ xx, yy = np.meshgrid(x_g, y_g)
 xy_grid = np.column_stack([xx.flatten(), yy.flatten()])
 dz2 = (x_g[1] - x_g[0])*(y_g[1] - y_g[0])
 
-from sklearn.neighbors import KDTree, BallTree
 def KLscore(x, z, returnQlog = False, qlog = None, qlogExp = None): #x are samples (change), z is measure data (unchanged!)
     
     tree_d = BallTree(x)
