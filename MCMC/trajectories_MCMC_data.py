@@ -6,7 +6,7 @@ data = scipy.io.loadmat("../4D_points_sim_v7.3.mat");
 Xfull = data['XBig']
 
 data = scipy.io.loadmat("../turningpoints_means_sim_v7.3.mat");
-Xnodes = data['Xnodes']
+XYnodes_heuristic = data['Xnodes']
 
 #xy_meas = Xfull[0:3000, 0:2]
 
