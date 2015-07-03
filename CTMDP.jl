@@ -1,4 +1,7 @@
+#include("pattern.jl")
+
 include("kronfun.jl")
+
 
 
 #It is assumed that someone else is providing the following:
@@ -9,7 +12,7 @@ include("kronfun.jl")
 
 
 #Number of nodes per instaces
-const g_nNodes = length(unique(g_allstates))
+const g_nNodes = length(unique(pattern.g_allstates))
 
 #Number of instances
 const g_nVehicles = 4
@@ -41,27 +44,27 @@ const xType = Int64; const XType = Vector{Int64}
 
 #Going between symbol representation and index representation
 function s2x(s::sType)
-  return (g_sn::Dict{Symbol, Int64})[s]
+  return (pattern.g_sn::Dict{Symbol, Int64})[s]
 end
 function S2X(S::SType)
-  return xType[(g_sn::Dict{Symbol,Int64})[s] for s in S]
+  return xType[(pattern.g_sn::Dict{Symbol,Int64})[s] for s in S]
 end
 function x2s(x::xType)
-  return (g_allstates::Vector{Symbol})[x]
+  return (pattern.g_allstates::Vector{Symbol})[x]
 end
 function X2S(X::XType)
-  return sType[(g_allstates::Vector{Symbol})[x] for x in X]
+  return sType[(pattern.g_allstates::Vector{Symbol})[x] for x in X]
 end
 
 
 #Get all possible states, allowing replacement, but order does not matter:
-const g_Scomp = combos_with_replacement(g_allstates, g_nVehicles)
+const g_Scomp = combos_with_replacement(pattern.g_allstates, g_nVehicles)
 const g_Xcomp = XType[S2X(s) for s in g_Scomp]
 
 const g_nScomp = length(g_Scomp); const g_nXcomp = g_nScomp;
 const g_nSlong  = g_nNodes^g_nVehicles; const g_nXlong = g_nSlong;
 
-const g_nCompActs = maxNextStates * g_nVehicles + 1
+const g_nCompActs = pattern.maxNextStates * g_nVehicles + 1
 
 #Going from compact indices to states
 function CIDX2S(cidx::Int64)
@@ -209,7 +212,7 @@ const collisionCost = -1000.0f0
 const taxiCost = -10.0f0
 
 
-function QVeval(X::XType, action::typeof(g_nullAct), Qt_list, V::Vector{Float32},
+function QVeval(X::XType, action::typeof(pattern.g_nullAct), Qt_list, V::Vector{Float32},
                 ζ::Float32, β::Float32, V_is_compact::Bool, 
                 Cb_res, res_u, res_u_rowval, res_u_nzval)
 
@@ -286,10 +289,10 @@ function NcolNtaxi(X::XType, collisionCost::Float32, taxiCost::Float32)
   Nc = 0
   Nt = 0
   for i in 1:length(X)
-    if X[i] in xTaxi
+    if X[i] in pattern.xTaxi
       Nt += 1
     end
-    if X[i] in xSafe
+    if X[i] in pattern.xSafe
       continue
     end
     for j in (i+1):length(X)
@@ -301,15 +304,15 @@ function NcolNtaxi(X::XType, collisionCost::Float32, taxiCost::Float32)
   return Nc*collisionCost +  Nt*taxiCost
 end
 #############################################
-function Reward(s::Vector{Symbol}, a::typeof(g_nullAct), β::Float32)
+function Reward(s::Vector{Symbol}, a::typeof(pattern.g_nullAct), β::Float32)
   return Reward(S2X(S), a, β)
 end
-function Reward(X::XType, a::typeof(g_nullAct), β::Float32)
+function Reward(X::XType, a::typeof(pattern.g_nullAct), β::Float32)
 #############################################
     r = 0.0f0
 
     #Actions have a cost
-    if(a[1] != g_nullAct[1]) #assumes anything with a[1] == 0 is null
+    if(a[1] != pattern.g_nullAct[1]) #assumes anything with a[1] == 0 is null
         r += β * collisionCost;
     end
 
@@ -321,17 +324,17 @@ function Reward(X::XType, a::typeof(g_nullAct), β::Float32)
     return r;
 end
 
-function r(X::XType, a::typeof(g_nullAct), β::Float32)
+function r(X::XType, a::typeof(pattern.g_nullAct), β::Float32)
   return Reward(X, a, β)
 end
 
 function gaussSeidel!(Qt_list, V::Vector{Float32}, ζ::Float32, β::Float32; maxIters::Int64=100, maxTime::Float64 = Inf)
 
-  Aopt = (typeof(g_nullAct))[copy(g_nullAct) for i in 1:g_nXcomp];
+  Aopt = (typeof(pattern.g_nullAct))[copy(pattern.g_nullAct) for i in 1:g_nXcomp];
   
   V_is_compact = length(Aopt) == length(V)
 
-  compActs = typeof(g_nullAct)[copy(g_nullAct) for i in 1:g_nCompActs]
+  compActs = typeof(pattern.g_nullAct)[copy(pattern.g_nullAct) for i in 1:g_nCompActs]
 
   Xp_indices = collect(permutations(1:g_nVehicles))
   
@@ -349,10 +352,10 @@ function gaussSeidel!(Qt_list, V::Vector{Float32}, ζ::Float32, β::Float32; max
     nActsChanged = 0;  
     for X in g_Xcomp
         X_cidx += 1 #X_cidx = X2CIDX(X)
-        aopt = g_nullAct
+        aopt = pattern.g_nullAct
         Qmax = float32(-Inf)
         #Populate compact actions for this Xtate
-        nActs = validCompActions!(compActs, X)
+        nActs = pattern.validCompActions!(compActs, X)
         for aIdx in 1:nActs
             Qa = QVeval(X, compActs[aIdx], Qt_list, V, ζ, β, 
                         V_is_compact, Cb_res, res_u, res_u_rowval, res_u_nzval)
@@ -407,14 +410,14 @@ function gaussSeidel!(Qt_list, V::Vector{Float32}, ζ::Float32, β::Float32; max
 end
 
 
-function policy_X2a_compact(X::XType, Aopt::Vector{typeof(g_nullAct)})
+function policy_X2a_compact(X::XType, Aopt::Vector{typeof(pattern.g_nullAct)})
   Xperm = sortperm(X)
   X_cidx = X2CIDX(X)
 
   compactAct = Aopt[X_cidx]
 
-  act = g_nullAct
-  if compactAct != g_nullAct
+  act = pattern.g_nullAct
+  if compactAct != pattern.g_nullAct
     pidx = [1:length(X)][Xperm[compactAct[1]]]
     act = [int8(pidx), compactAct[2]]
   end
@@ -425,14 +428,14 @@ function policy_X2a_compact(X::XType, Aopt::Vector{typeof(g_nullAct)})
 end
 
 
-function policy_X2a(X::XType, Aopt::Vector{typeof(g_nullAct)})
+function policy_X2a(X::XType, Aopt::Vector{typeof(pattern.g_nullAct)})
   #Get the compact form representation
   act = policy_X2a_compact(X, Aopt)
   #Trasnform it to the extended form
   return compAct2extAct(act,X2S(X))
 end
 
-function policy_S2a(S::SType, Aopt::Vector{typeof(g_nullAct)})
+function policy_S2a(S::SType, Aopt::Vector{typeof(pattern.g_nullAct)})
   return policy_X2a(S2X(S),Aopt)
 end
 ##################################
@@ -453,11 +456,11 @@ end
 
 ##################################
 #Use policy from the 1 phase case 
-function liftUpPolicy!(Qt_list, V::Vector{Float32}, ζ::Float32, β::Float32,  Aopt1::Vector{typeof(g_nullAct)}; maxIters::Int64=100, maxTime::Float64 = Inf)
+function liftUpPolicy!(Qt_list, V::Vector{Float32}, ζ::Float32, β::Float32,  Aopt1::Vector{typeof(pattern.g_nullAct)}; maxIters::Int64=100, maxTime::Float64 = Inf)
     #We are fine using references, as they will later get 
     #changed to other references, and since we ultimately populate
     #the value function, we won't return this to anyone!
-    Aopt = Array(typeof(g_nullAct), g_nXcomp);
+    Aopt = Array(typeof(pattern.g_nullAct), g_nXcomp);
     
     #We reconstruct the compact dictionary for phase free case!
     #TODO: Get rid of the hardcoded 27!!
