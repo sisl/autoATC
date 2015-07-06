@@ -11,6 +11,10 @@ module MCTS
 export SPWParams, SPW, selectAction!
 
 typealias Depth Int16
+typealias Reward Float64
+
+abstract State
+abstract Action
 
 type SPWParams{T<:Action}
     d::Depth                    # search depth
@@ -45,7 +49,6 @@ end
 #and the statistics for the tree
 # This function calls simulate and chooses the approximate best action from the reward approximations 
 function selectAction!(spw::SPW,s0::State)
-    
     
     #TODO: try to call A as little as possible?
     acts = spw.pars.A(s0) #get the allowable actions
