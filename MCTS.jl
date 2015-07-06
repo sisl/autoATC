@@ -43,14 +43,22 @@ end
 #This is the entry function, it needs an initial (root) state, and
 #the parameters for the SPW structure which contains the parameters
 #and the statistics for the tree
+# This function calls simulate and chooses the approximate best action from the reward approximations 
 function selectAction!(spw::SPW,s0::State)
-    # This function calls simulate and chooses the approximate best action from the reward approximations 
-    for i = 1:spw.pars.n 
-        simulate(spw,s0,spw.pars.d)
-    end
+    
     
     #TODO: try to call A as little as possible?
     acts = spw.pars.A(s0) #get the allowable actions
+    
+    
+    #This is to avoid the first call to simulate wasting a rollout
+    if !haskey(spw.stats, s0)
+        spw.stats[s0] = StateStat(length(acts))
+    end
+    
+    for i = 1:spw.pars.n 
+        simulate(spw,s0,spw.pars.d)
+    end
     
     #Choose action with highest apporoximate q-value 
     return acts[indmax(spw.stats[s0].q)]::Action 
