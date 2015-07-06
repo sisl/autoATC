@@ -1,6 +1,7 @@
 #include("pattern.jl")
 
 include("kronfun.jl")
+using HDF5, JLD
 
 
 
@@ -410,6 +411,91 @@ function gaussSeidel!(Qt_list, V::Vector{Float32}, ζ::Float32, β::Float32; max
 end
 
 
+function greedyRandomRollout!(Qt_list, V::Vector{Float32}, ζ::Float32, β::Float32; maxIters::Int64=100, maxTime::Float64 = Inf)
+    
+    Aopt = (typeof(pattern.g_nullAct))[copy(pattern.g_nullAct) for i in 1:g_nXcomp];
+    
+    V_is_compact = length(Aopt) == length(V)
+    
+    compActs = typeof(pattern.g_nullAct)[copy(pattern.g_nullAct) for i in 1:g_nCompActs]
+    
+    Xp_indices = collect(permutations(1:g_nVehicles))
+    
+    n = size(Qt_list[1],1)
+    res_u = spzeros(Float32, n,1)
+    res_u_rowval = Array(Int64, n)
+    res_u_nzval = Array(Float32, n)
+    Cb_res = spzeros(Float32, n^(g_nVehicles-1),1); #n^K with K = nVehicles - 1
+    
+    
+    start = time()
+    @time for iter in 1:maxIters
+      maxVchange = 0.0f0
+      X_cidx = 0
+      nActsChanged = 0;  
+      for X in g_Xcomp
+          X_cidx += 1 #X_cidx = X2CIDX(X)
+          
+          #Use the silent policy
+          aopt = compActs[1]
+          Va = QVeval(X, aopt, Qt_list, V, ζ, β, 
+                      V_is_compact, Cb_res, res_u, res_u_rowval, res_u_nzval)
+              
+        
+          if (V_is_compact)
+              maxVchange = max(maxVchange, abs(V[X_cidx] - Va))
+              V[X_cidx] = Va
+          else
+              X_lidx = X2LIDX(X, Xp_indices[1])
+              maxVchange = max(maxVchange, abs(V[X_lidx] - Va))
+              V[X_lidx] = Va
+              for i in 2:length(Xp_indices)
+                  X_lidx = X2LIDX(X, Xp_indices[i]) 
+                  V[X_lidx] = Va
+              end
+          end
+    
+      end
+    
+      elapsedTime = time() - start
+      if(maxVchange < 1 || iter==maxIters || elapsedTime > maxTime)
+          @printf("Stopping after %i iterations (maxVchange = %.2f)\n", iter, maxVchange)
+          break
+      elseif mod(iter, 5) == 0
+          @printf("At iteration #%i: maxVchange = %.2f, nActsChanged = %d, t = %.2f sec\n", 
+                      iter, maxVchange, nActsChanged, elapsedTime)
+      end
+    end
+    
+    #Extract Aopt
+    X_cidx = 0
+    for X in g_Xcomp
+         X_cidx += 1 #X_cidx = X2CIDX(X)
+         
+         aopt = pattern.g_nullAct
+         Qmax = float32(-Inf)
+         #Populate compact actions for this Xtate
+         nActs = pattern.validCompActions!(compActs, X)
+         for aIdx in 1:nActs
+             Qa = QVeval(X, compActs[aIdx], Qt_list, V, ζ, β, 
+                         V_is_compact, Cb_res, res_u, res_u_rowval, res_u_nzval)
+             
+             if Qa > Qmax
+                 Qmax = Qa
+                 aopt = compActs[aIdx]
+             end
+         end
+    
+         Aopt[X_cidx][1] = aopt[1]
+         Aopt[X_cidx][2] = aopt[2]
+     end
+
+    return Aopt
+
+end
+
+
+
 function policy_X2a_compact(X::XType, Aopt::Vector{typeof(pattern.g_nullAct)})
   Xperm = sortperm(X)
   X_cidx = X2CIDX(X)
@@ -432,7 +518,7 @@ function policy_X2a(X::XType, Aopt::Vector{typeof(pattern.g_nullAct)})
   #Get the compact form representation
   act = policy_X2a_compact(X, Aopt)
   #Trasnform it to the extended form
-  return compAct2extAct(act,X2S(X))
+  return pattern.compAct2extAct(act,X2S(X))
 end
 
 function policy_S2a(S::SType, Aopt::Vector{typeof(pattern.g_nullAct)})
@@ -440,18 +526,18 @@ function policy_S2a(S::SType, Aopt::Vector{typeof(pattern.g_nullAct)})
 end
 ##################################
 
-function savePolicy(Aopt, α, β_cost)
-    filename = "policies/CTMDPpolicy_n_" * string(nPhases) * "_a_" * string(α) * "_b_" * string(β_cost) * ".jld"
+function savePolicy(Aopt, α, β_cost; prefix="")
+    filename = "policies/" * prefix * "CTMDPpolicy_n_" * string(pattern.nPhases) * "_a_" * string(α) * "_b_" * string(β_cost) * ".jld"
     Aopt_idx = Int8[Aopt[i][1] for i in 1:length(Aopt)]
     Aopt_act = Int8[Aopt[i][2] for i in 1:length(Aopt)]
-    save(filename, "Aopt_idx", Aopt_idx, "Aopt_act", Aopt_act); #"Vstar", Vshort,
+    JLD.save(filename, "Aopt_idx", Aopt_idx, "Aopt_act", Aopt_act); #"Vstar", Vshort,
     println(filename)
 end
 
-function loadPolicy(α, β_cost)
-    filename = "policies/CTMDPpolicy_n_" * string(nPhases) * "_a_" * string(α) * "_b_" * string(β_cost) * ".jld"
-    data = load(filename)
-    Aopt = typeof(g_nullAct)[[data["Aopt_idx"][i] , data["Aopt_act"][i]] for i in 1:length(data["Aopt_idx"])]
+function loadPolicy(α, β_cost; prefix="")
+    filename = "policies/" * prefix * "CTMDPpolicy_n_" * string(pattern.nPhases) * "_a_" * string(α) * "_b_" * string(β_cost) * ".jld"
+    data = JLD.load(filename)
+    Aopt = typeof(pattern.g_nullAct)[[data["Aopt_idx"][i] , data["Aopt_act"][i]] for i in 1:length(data["Aopt_idx"])]
 end
 
 ##################################

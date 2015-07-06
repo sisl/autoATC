@@ -10,8 +10,8 @@ const simdt = 0.25
 #################################################
 function runAutoATC(acList::Vector{airplane}, policyFun)
 #################################################
-  act = g_noaction
-  S = Symbol[appendPhase(ac.navDest[1],ac.navPhase) for ac in acList]
+  act = pattern.g_noaction
+  S = Symbol[pattern.appendPhase(ac.navDest[1],ac.navPhase) for ac in acList]
   act = policyFun(S)
   return act
 end
@@ -35,10 +35,13 @@ function simulate!(acList::Vector{airplane}, Tend, policyTiming::Symbol, policyF
   alertCount = 0
   flightTime = 0.
   
-  measurements = [ne_psi() for i in 1:length(acList), j in 1:(length(trange)+1)]
+  measurements = []
   
-  for acIdx in 1:length(acList)
-    SASS_sense!(measurements[acIdx,1], acList[acIdx])
+  if(savemeasurements)
+    measurements = [ne_psi() for i in 1:length(acList), j in 1:(length(trange)+1)]
+    for acIdx in 1:length(acList)
+        SASS_sense!(measurements[acIdx,1], acList[acIdx])
+    end
   end
   
   tmax = Tend
@@ -64,7 +67,7 @@ function simulate!(acList::Vector{airplane}, Tend, policyTiming::Symbol, policyF
     if(readyForCommand)
       act = runAutoATC(acList, policyFun)
       #If we have an action to issue, pass it along
-      if act != g_noaction && acList[act[1]].atcCommand == :∅
+      if act != pattern.g_noaction && acList[act[1]].atcCommand == :∅
         acList[act[1]].atcCommand = act[2]
         alertCount += 1
       end
@@ -73,7 +76,9 @@ function simulate!(acList::Vector{airplane}, Tend, policyTiming::Symbol, policyF
     #Fly pattern logic for all aircraft
     for idx in 1:length(acList)
       flyPattern!(acList[idx], simdt, savepath)
-      SASS_sense!(measurements[idx, tidx+1], acList[idx])
+      if savemeasurements
+        SASS_sense!(measurements[idx, tidx+1], acList[idx])
+      end
     end
 
     #Compute the distance to all other boogies
@@ -81,6 +86,7 @@ function simulate!(acList::Vector{airplane}, Tend, policyTiming::Symbol, policyF
     #We had an NMAC event if dmin <= 0, so break out
     if(stopEarly && dmin <= 0)
       tmax = t;
+      break;
     end
 
     #Accumulate the amount of time spent in non-taxi states

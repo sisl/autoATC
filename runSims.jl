@@ -110,12 +110,17 @@ startTime = time();
                 #First, initialize the position
                 aircraftList = randomStart()
                 #Simulate the policy
-                (idmin, tmax, alertCount, flightTime) = simulate!(aircraftList,tBatchTime,atcType,ctmdpPolicy,
+                                simTime = tBatchTime-tTotals[betaIdx, atcIdx, i]
+                (idmin, tmax, alertCount, flightTime) = simulate!(aircraftList,simTime,
+                                                                  atcType,ctmdpPolicy,
                                                                   stopEarly=true, savepath=false);
-                tTotals[betaIdx, atcIdx, i] += tmax
-                if (tmax < tBatchTime )
+                
+                
+                if (tmax < simTime ) #we finished early, must have been an NMAC
                     nNMACcounts[betaIdx, atcIdx, i] += 1
                 end
+                
+                tTotals[betaIdx, atcIdx, i] += tmax
                 alertCounts[betaIdx, atcIdx, i] += alertCount
                 flightTimes[betaIdx, atcIdx, i] += flightTime
                 tStat[betaIdx, atcIdx, i] = tmax
