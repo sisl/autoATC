@@ -1,11 +1,14 @@
 module MCTS
+# This module implements Monte Carlo tree search (MCTS), an online MDP solver.
+#It is adapted by <zouhair> from code available @ https://bitbucket.org/sisl/mdp.jl/
 
-# This module implements Monte Carlo tree search (MCTS), an online MDP solver. In MCTS. the poosible evolutions of the system are represented as a tree and an approximation to this tree is built iteratively and used to inform the choice of action. Documentation for MCTS can be found in Decision Making Under Uncertainty, MIT Press 2015, and A survey of Monte Carlo tree search methods in Computational Intelligence and AI in games, 2012.
 
-using MDP
-using auxfuncs
+# In MCTS. the poosible evolutions of the system are represented as a tree
+# and an approximation to this tree is built iteratively and used to inform the choice of action.
+#Documentation for MCTS can be found in Decision Making Under Uncertainty, MIT Press 2015,
+#and A survey of Monte Carlo tree search methods in Computational Intelligence and AI in games, 2012.
 
-export SPWParams, SPW, selectAction
+export SPWParams, SPW, selectAction!
 
 typealias Depth Int16
 
@@ -14,47 +17,92 @@ type SPWParams{T<:Action}
     ec::Float64                 # exploration constant- governs trade-off between exploration and exploitation in MCTS
     n::Int32                    # number of iterations
     rng::AbstractRNG            # random number generator
-    A::Array{T,1}               # set of allowable actions
-    getAction::Function         # returns action for rollout policy
+    A::Function                 # set of allowable actions 
+    rolloutPolicy::Function     # returns action for rollout policy
     getNextState::Function      # takes state and action as arguments and returns next state from generative model
     getReward::Function         # takes state and action as arguments and returns reward
 end
 
-type StateNode
-    n::Array{Int32,1}
-    q::Array{Reward,1}
-    StateNode(nA) = new(zeros(Int32,nA),zeros(Reward,nA))
+
+#statistics for a given node
+type StateStat
+    n::Array{Int32,1}  #Number of times the state/action pairs were visitied
+    q::Array{Reward,1} #average reward for that state
+    
+    StateStat(nA) = new(zeros(Int32,nA),zeros(Reward,nA))
 end
 
 type SPW{T}
-    s::Dict{State,StateNode}
-    p::SPWParams{T}
-    SPW{T<:Action}(p::SPWParams{T}) = new(Dict{State,StateNode}(),p)
+    stats::Dict{State,StateStat} #statistics
+    pars::SPWParams{T}          #parameters
+    
+    #constructor (takes parameters, initializes statistics to be empty)
+    SPW{T<:Action}(p::SPWParams{T}) = new(Dict{State,StateStat}(),p)
 end
 
-function selectAction(spw::SPW,s::State)
+#This is the entry function, it needs an initial (root) state, and
+#the parameters for the SPW structure which contains the parameters
+#and the statistics for the tree
+function selectAction!(spw::SPW,s0::State)
     # This function calls simulate and chooses the approximate best action from the reward approximations 
-    for i = 1:spw.p.n 
-        simulate(spw,s,spw.p.d)
+    for i = 1:spw.pars.n 
+        simulate(spw,s0,spw.pars.d)
     end
-    return spw.p.A[indmax(spw.s[s].q)]::Action # Choose action with highest apporoximate value
+    
+    #TODO: try to call A as little as possible?
+    acts = spw.pars.A(s0) #get the allowable actions
+    
+    #Choose action with highest apporoximate q-value 
+    return acts[indmax(spw.stats[s0].q)]::Action 
 end
 
 function simulate(spw::SPW,s::State,d::Depth)
     # This function returns the reward for one iteration of MCTS
+    
+    #We have reached the bottom, bubble up.
     if d == 0
         return 0.0::Reward
     end
-    if !haskey(spw.s,s)
-        spw.s[s] = StateNode(length(spw.p.A))
+    
+    #Determine actions available for this state
+    acts = spw.pars.A(s)
+    nActs = length(nActs)
+    
+    #If this state has no statistics yet (i.e. first visit)
+    #perform a roll-out
+    
+    
+    if !haskey(spw.stats,s)
+        #Add a new node with the state statistics
+        spw.stats[s] = StateStat(nActs)
+        #perform one rollout and return
         return rollout(spw,s,d)::Reward
     else # choose an action using UCT criterion
-        cS = spw.s[s]
-        i = indmax(cS.q + spw.p.ec.*real(sqrt(complex(log(sum(cS.n))./cS.n))))
-        a = spw.p.A[i] # choose action with highest UCT score
-        sp = spw.p.getNextState(s,a,spw.p.rng)
-        q = spw.p.getReward(s,a) + simulate(spw,sp,int16(d-1))
-        cS.n[i] = cS.n[i] + one(Int32)
+        
+        
+        # choose action with highest UCT score
+        # which trades-off exploration / explotation
+        cS = spw.stats[s]
+        
+        N = sum(cS.n)
+        #Check N > 0 to avoid log(0)/0 = -Inf, can't take sqrt!
+        i = 1 #if N == 0, use first action
+        if( N > 0)
+            logN =  log(N) + eps(0.) # +eps is to avoid log(1)/0 = NaN
+            i  = indmax(cS.q + spw.pars.ec * sqrt( logN ./ cS.n))
+        end
+        a  = acts[i]
+        
+        #Randomly select the next state based on the action used
+        sp = spw.p.getNextState(s,a,spw.pars.rng)
+        #Estimate the reward
+        q  = spw.p.getReward(s,a) + simulate(spw,sp,int16(d-1))
+        
+        #Update the statistics
+        cS.n[i] += one(Int32)
+ 
+        #This could maybe take into account the transition probablities?
+        #i.e. given that we know P(s' | s, a), use importance weighing?
         cS.q[i] += (q-cS.q[i])/cS.n[i]
         return q::Reward
     end
@@ -65,8 +113,9 @@ function rollout(spw::SPW,s::State,d::Depth)
     if d == 0
         return 0.0::Reward
     else 
-        a = spw.p.getAction(s,spw.p.rng)
-        sp = spw.p.getNextState(s,a,spw.p.rng)
+        a  = spw.p.rolloutPolicy(s,spw.pars.rng)
+        sp = spw.p.getNextState(s,a,spw.pars.rng)
+        #This runs a roll-out simulation, note the lack of discount factor...
         return (spw.p.getReward(s,a) + rollout(spw,sp,int16(d-1)))::Reward
     end 
 end
