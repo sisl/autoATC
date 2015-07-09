@@ -70,6 +70,8 @@ function selectAction!(spw::SPW,s0::State)
     return acts[indmax(spw.stats[s0].q)]::Action 
 end
 
+
+#TODO: handle terminal states!
 function simulate(spw::SPW,s::State,d::Depth)
     # This function returns the reward for one iteration of MCTS
     
@@ -130,7 +132,12 @@ function rollout(spw::SPW,s::State,d::Depth)
         a  = spw.pars.rolloutPolicy(s,spw.pars.rng)
         sp = spw.pars.getNextState(s,a,spw.pars.rng)
         #This runs a roll-out simulation, note the lack of discount factor...
-        return (spw.pars.getReward(s,a) + rollout(spw,sp,int16(d-1)))::Reward
+        (R, terminate) = spw.pars.getReward(s,a)
+        if terminate
+            return R::Reward
+        else
+            return (R + rollout(spw,sp,int16(d-1)))::Reward
+        end
     end 
 end
 
