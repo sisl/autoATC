@@ -75,6 +75,11 @@ n = int32(1000)
 β = 0.0f0
 mcts = genMCTSdict(d, ec, n, β)
 
+mctsPolicy = S -> MCTS.selectAction!(mcts, S)
+
+
+
+
 
 # 
 # gridworld = GenerativeModel(getInitialState,getNextState,getReward)
