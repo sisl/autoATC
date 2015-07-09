@@ -62,7 +62,7 @@ end
 #Note that this will introduce (nPhases-1) as the last phase is
 #assumed to be the state itself.
 #We also assume that the actions are given at the last phase.
-const nPhases = 6; #must be >= 1
+const nPhases = 2; #must be >= 1
 phaseFreeStates = [:R, :LDep, :LArr, :RDep, :RArr]
 *(a::Symbol, b::Symbol) = symbol(string(a, b))
 function appendPhase(s::Symbol, k::Int64)
@@ -262,20 +262,8 @@ symmetrize!(xy, x -> [x[1], -x[2]])
 #############################################
 #Probability of following ATC command
 #############################################
-
-#Two versions for type stability ... 
-function weightedChoice(weights::Vector{Float32})
-    rnd = rand(Float32) * sum(weights)
-    for i in 1:length(weights)
-        rnd -= weights[i]
-        if rnd < 0.0f0
-            return i
-        end
-    end
-    return length(weights)
-end
-function weightedChoice(weights::Vector{Float64})
-    rnd = (rand(rng)) * sum(weights)
+function weightedChoice(weights::Vector{Float64}, rngState)
+    rnd = (rand(rngState)) * sum(weights)
     for i in 1:length(weights)
         rnd -= weights[i]
         if rnd < 0.0
@@ -285,12 +273,12 @@ function weightedChoice(weights::Vector{Float64})
     return length(weights)
 end
 #############################################
-function randomChoice(from::Symbol, receivedATC::Bool, atcDesired::Symbol)
+function randomChoice(from::Symbol, receivedATC::Bool, atcDesired::Symbol; rngState=rng)
 #############################################
     snext = NextStates[from]
     pnext = Float64[probFromTo(from, to, receivedATC, atcDesired) for to in snext]
 
-    return snext[weightedChoice(pnext)]
+    return snext[weightedChoice(pnext, rngState)]
 end
 
 #############################################

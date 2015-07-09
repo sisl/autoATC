@@ -305,7 +305,7 @@ function NcolNtaxi(X::XType, collisionCost::Float32, taxiCost::Float32)
   return Nc*collisionCost +  Nt*taxiCost
 end
 #############################################
-function Reward(s::Vector{Symbol}, a::typeof(pattern.g_nullAct), β::Float32)
+function Reward(S::Vector{Symbol}, a::typeof(pattern.g_nullAct), β::Float32)
   return Reward(S2X(S), a, β)
 end
 function Reward(X::XType, a::typeof(pattern.g_nullAct), β::Float32)
