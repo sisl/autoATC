@@ -11,7 +11,7 @@ module MCTS
 export SPWParams, SPW, selectAction!
 
 typealias Depth Int16
-typealias Reward Float64
+typealias Reward Float32
 
 
 #TODO: This forces a certain type for state and action ...
@@ -20,14 +20,17 @@ typealias Action (Int8, Symbol)
 
 type SPWParams{T<:Action}
     d::Depth                    # search depth
-    ec::Float64                 # exploration constant- governs trade-off between exploration and exploitation in MCTS
+    ec::Float32                 # exploration constant- governs trade-off between exploration and exploitation in MCTS
     n::Int32                    # number of iterations
-    rng::AbstractRNG            # random number generator
+    β::Float32
     
     A::Function                 # set of allowable actions 
     rolloutPolicy::Function     # returns action for rollout policy
     getNextState::Function      # takes state and action as arguments and returns next state from generative model
     getReward::Function         # takes state and action as arguments and returns reward
+    
+    rng::AbstractRNG            # random number generator
+
 end
 
 
@@ -77,7 +80,7 @@ function simulate(spw::SPW,s::State,d::Depth)
     
     #We have reached the bottom, bubble up.
     if d == 0
-        return 0.0::Reward
+        return 0.0f0::Reward
     end
     
     #Determine actions available for this state
@@ -112,7 +115,10 @@ function simulate(spw::SPW,s::State,d::Depth)
         #Randomly select the next state based on the action used
         sp = spw.pars.getNextState(s,a,spw.pars.rng)
         #Estimate the reward
-        q  = spw.pars.getReward(s,a) + simulate(spw,sp,int16(d-1))
+        (q, terminate) = spw.pars.getReward(s,a, spw.pars) 
+        if !terminate
+            q += simulate(spw,sp,int16(d-1))
+        end
         
         #Update the statistics
         cS.n[i] += one(Int32)
@@ -127,17 +133,16 @@ end
 function rollout(spw::SPW,s::State,d::Depth)
     # Runs a rollout simulation using the default policy
     if d == 0
-        return 0.0::Reward
+        return 0.0f0::Reward
     else 
         a  = spw.pars.rolloutPolicy(s,spw.pars.rng)
         sp = spw.pars.getNextState(s,a,spw.pars.rng)
         #This runs a roll-out simulation, note the lack of discount factor...
-        (R, terminate) = spw.pars.getReward(s,a)
-        if terminate
-            return R::Reward
-        else
-            return (R + rollout(spw,sp,int16(d-1)))::Reward
+        (R, terminate) = spw.pars.getReward(s,a, spw.pars)
+        if !terminate
+            R +=  rollout(spw,sp,int16(d-1))::Reward
         end
+        return R::Reward
     end 
 end
 

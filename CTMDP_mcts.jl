@@ -5,9 +5,7 @@ include("CTMDP.jl")
 
 mctsRng = MersenneTwister(1)
 
-d = int16(50)           
-ec = 100.
-n = int32(50)
+
 
 
 function rollOutPolicy(s::SType, rngState)
@@ -37,12 +35,12 @@ function getNextState(Snow::SType, a::typeof(pattern.g_noaction), rngState)
     return Snew
 end
 
-function getReward(S::SType, a::typeof(pattern.g_noaction))
+function getReward(S::SType, a::typeof(pattern.g_noaction), pars)
     #TODO: probably can get rid of this
     acomp = pattern.extAct2compAct(a, S)
     
     
-    β = 0.0f0
+    β = pars.β
     assert(β < 0.9f0) #We make the assumption that action cost is small relative to collision cost
     
     
@@ -62,8 +60,20 @@ Afun = pattern.validActions
 assert (typeof(pattern.g_noaction) == MCTS.Action)
 assert (SType == MCTS.State)
 
-pars = MCTS.SPWParams{MCTS.Action}(d,ec,n,mctsRng, Afun,rollOutPolicy,getNextState,getReward)
-mcts = MCTS.SPW{MCTS.Action}(pars)
+
+
+
+function genMCTSdict(d, ec, n, β)
+    pars = MCTS.SPWParams{MCTS.Action}(d,ec,n,β, Afun,rollOutPolicy,getNextState,getReward, mctsRng)
+    mcts = MCTS.SPW{MCTS.Action}(pars)
+    return mcts
+end
+
+d = int16(50)           
+ec = 100.0f0
+n = int32(50)
+β = 0.0f0
+mcts = genMCTSdict(d, ec, n, β)
 
 
 # 
