@@ -70,8 +70,8 @@ function genMCTSdict(d, ec, n, β)
 end
 
 d = int16(50)           
-ec = 100.0f0
-n = int32(50)
+ec = abs(collisionCost)
+n = int32(1000)
 β = 0.0f0
 mcts = genMCTSdict(d, ec, n, β)
 
