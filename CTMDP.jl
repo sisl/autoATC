@@ -43,6 +43,10 @@ end
 const sType = Symbol; const SType = Vector{Symbol}
 const xType = Int64; const XType = Vector{Int64}
 
+const compActType = typeof(pattern.g_nullAct)
+const extActType = typeof(pattern.g_noaction)
+const ActType = Union(compActType,extActType)
+
 #Going between symbol representation and index representation
 function s2x(s::sType)
   return (pattern.g_sn::Dict{Symbol, Int64})[s]
@@ -213,7 +217,7 @@ const collisionCost = -1000.0f0
 const taxiCost = -10.0f0
 
 
-function QVeval(X::XType, action::typeof(pattern.g_nullAct), Qt_list, V::Vector{Float32},
+function QVeval(X::XType, action::compActType, Qt_list, V::Vector{Float32},
                 ζ::Float32, β::Float32, V_is_compact::Bool, 
                 Cb_res, res_u, res_u_rowval, res_u_nzval)
 
@@ -305,15 +309,24 @@ function NcolNtaxi(X::XType, collisionCost::Float32, taxiCost::Float32)
   return Nc*collisionCost +  Nt*taxiCost
 end
 #############################################
-function Reward(S::Vector{Symbol}, a::typeof(pattern.g_nullAct), β::Float32)
+function Reward(S::Vector{Symbol}, a::ActType, β::Float32)
   return Reward(S2X(S), a, β)
 end
-function Reward(X::XType, a::typeof(pattern.g_nullAct), β::Float32)
+
+
+function isNullAct(a::compActType)
+    return a[1] == pattern.g_nullAct[1] #assumes anything with a[1] == 0 is null
+end
+function isNullAct(a::extActType)
+    return a[1] == pattern.g_noaction[1] #assumes anything with a[1] == 0 is null
+end
+
+function Reward(X::XType, a::ActType, β::Float32)
 #############################################
     r = 0.0f0
 
     #Actions have a cost
-    if(a[1] != pattern.g_nullAct[1]) #assumes anything with a[1] == 0 is null
+    if (!isNullAct(a))
         r += β * collisionCost;
     end
 
@@ -325,17 +338,17 @@ function Reward(X::XType, a::typeof(pattern.g_nullAct), β::Float32)
     return r;
 end
 
-function r(X::XType, a::typeof(pattern.g_nullAct), β::Float32)
+function r(X::XType, a::ActType, β::Float32)
   return Reward(X, a, β)
 end
 
 function gaussSeidel!(Qt_list, V::Vector{Float32}, ζ::Float32, β::Float32; maxIters::Int64=100, maxTime::Float64 = Inf)
 
-  Aopt = (typeof(pattern.g_nullAct))[copy(pattern.g_nullAct) for i in 1:g_nXcomp];
+  Aopt = (compActType)[copy(pattern.g_nullAct) for i in 1:g_nXcomp];
   
   V_is_compact = length(Aopt) == length(V)
 
-  compActs = typeof(pattern.g_nullAct)[copy(pattern.g_nullAct) for i in 1:g_nCompActs]
+  compActs = compActType[copy(pattern.g_nullAct) for i in 1:g_nCompActs]
 
   Xp_indices = collect(permutations(1:g_nVehicles))
   
@@ -413,11 +426,11 @@ end
 
 function greedyRandomRollout!(Qt_list, V::Vector{Float32}, ζ::Float32, β::Float32; maxIters::Int64=100, maxTime::Float64 = Inf)
     
-    Aopt = (typeof(pattern.g_nullAct))[copy(pattern.g_nullAct) for i in 1:g_nXcomp];
+    Aopt = (compActType)[copy(pattern.g_nullAct) for i in 1:g_nXcomp];
     
     V_is_compact = length(Aopt) == length(V)
     
-    compActs = typeof(pattern.g_nullAct)[copy(pattern.g_nullAct) for i in 1:g_nCompActs]
+    compActs = compActType[copy(pattern.g_nullAct) for i in 1:g_nCompActs]
     
     Xp_indices = collect(permutations(1:g_nVehicles))
     
@@ -496,7 +509,7 @@ end
 
 
 
-function policy_X2a_compact(X::XType, Aopt::Vector{typeof(pattern.g_nullAct)})
+function policy_X2a_compact(X::XType, Aopt::Vector{compActType})
   Xperm = sortperm(X)
   X_cidx = X2CIDX(X)
 
@@ -514,14 +527,14 @@ function policy_X2a_compact(X::XType, Aopt::Vector{typeof(pattern.g_nullAct)})
 end
 
 
-function policy_X2a(X::XType, Aopt::Vector{typeof(pattern.g_nullAct)})
+function policy_X2a(X::XType, Aopt::Vector{compActType})
   #Get the compact form representation
   act = policy_X2a_compact(X, Aopt)
   #Trasnform it to the extended form
   return pattern.compAct2extAct(act,X2S(X))
 end
 
-function policy_S2a(S::SType, Aopt::Vector{typeof(pattern.g_nullAct)})
+function policy_S2a(S::SType, Aopt::Vector{compActType})
   return policy_X2a(S2X(S),Aopt)
 end
 ##################################
@@ -537,16 +550,16 @@ end
 function loadPolicy(α, β_cost; prefix="")
     filename = "policies/" * prefix * "CTMDPpolicy_n_" * string(pattern.nPhases) * "_a_" * string(α) * "_b_" * string(β_cost) * ".jld"
     data = JLD.load(filename)
-    Aopt = typeof(pattern.g_nullAct)[[data["Aopt_idx"][i] , data["Aopt_act"][i]] for i in 1:length(data["Aopt_idx"])]
+    Aopt = compActType[[data["Aopt_idx"][i] , data["Aopt_act"][i]] for i in 1:length(data["Aopt_idx"])]
 end
 
 ##################################
 #Use policy from the 1 phase case 
-function liftUpPolicy!(Qt_list, V::Vector{Float32}, ζ::Float32, β::Float32,  Aopt1::Vector{typeof(pattern.g_nullAct)}; maxIters::Int64=100, maxTime::Float64 = Inf)
+function liftUpPolicy!(Qt_list, V::Vector{Float32}, ζ::Float32, β::Float32,  Aopt1::Vector{compActType}; maxIters::Int64=100, maxTime::Float64 = Inf)
     #We are fine using references, as they will later get 
     #changed to other references, and since we ultimately populate
     #the value function, we won't return this to anyone!
-    Aopt = Array(typeof(pattern.g_nullAct), g_nXcomp);
+    Aopt = Array(compActType, g_nXcomp);
     
     #We reconstruct the compact dictionary for phase free case!
     #TODO: Get rid of the hardcoded 27!!

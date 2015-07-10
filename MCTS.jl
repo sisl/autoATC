@@ -125,6 +125,9 @@ function simulate(spw::SPW,s::State,d::Depth)
  
         #This could maybe take into account the transition probablities?
         #i.e. given that we know P(s' | s, a), use importance weighing?
+        #Doh, apparently people thought about this already. See:
+        #http://www.ai.rug.nl/~mwiering/Tom_van_der_Kleij_Thesis.pdf
+        #Equ 3.2
         cS.q[i] += (q-cS.q[i])/cS.n[i]
         return q::Reward
     end

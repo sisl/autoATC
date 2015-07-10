@@ -17,16 +17,34 @@ end
 #so only one needs to transition at a time!
 #Since we are using Monte-Carlo, we might be able to use the history
 #and actually handle non-exponential time distributions?
+
+
+function findFirsti(Snow::SType, trantimes::typeof(pattern.teaTime), rngState)
+    #Find which state will transition
+    N = length(Snow)
+    p = rand(rngState, N)
+    tmin = Inf
+    ifirst = 1
+    for i in 1:N
+       t = -trantimes[Snow[i]] * log(1-p[i]) 
+       if t < tmin
+         ifirst = i
+         tmin = t
+       end
+    end
+    
+    return ifirst
+end
+
+
+
 function getNextState(Snow::SType, a::typeof(pattern.g_noaction), rngState)
     Snew = deepcopy(Snow)
     
-    #Find which state will transition
-    p = rand(rngState, length(Snow))
-    t_rand = -Float64[pattern.teaTime[s] for s in Snow] .* log(1-p)
-    i = indmin(t_rand)
+    ifirst = findFirsti(Snow, pattern.teaTime, rngState)
     
     #Only transition the one with the earliest event in the race!
-    Snew[i] = pattern.randomChoice(Snow[i], a[1] == i, a[2]; rngState=rngState)
+    Snew[ifirst] = pattern.randomChoice(Snow[ifirst], a[1] == ifirst, a[2]; rngState=rngState)
     
 #   This works for an MDP but not a CTMDP !    
 #     for i in 1:length(Snow)
@@ -35,14 +53,9 @@ function getNextState(Snow::SType, a::typeof(pattern.g_noaction), rngState)
     return Snew
 end
 
-function getReward(S::SType, a::typeof(pattern.g_noaction), pars)
-    #TODO: probably can get rid of this
-    acomp = pattern.extAct2compAct(a, S)
-    
-    
+function getReward(S::SType, a::typeof(pattern.g_noaction), pars)    
     β = pars.β
     assert(β < 0.9f0) #We make the assumption that action cost is small relative to collision cost
-    
     
     R = Reward(S, acomp, β)
     
@@ -71,7 +84,7 @@ end
 
 d = int16(50)           
 ec = abs(collisionCost)
-n = int32(1000)
+n = int32(500)
 β = 0.0f0
 mcts = genMCTSdict(d, ec, n, β)
 
