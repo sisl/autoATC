@@ -64,10 +64,7 @@ end
 # This function calls simulate and chooses the approximate best action from the reward approximations 
 function selectAction!(spw::SPW, acts::Vector{Action}, s0::State)
     
-    #get the list of allowable actions for this state
-    spw.pars.Afun!(acts, s0) 
-    
-    
+    #Reset the dictionary if told to
     if(spw.pars.resetDict)
         #spw.stats = Dict{StateKey,StateStat}()
         for v in values(spw.stats)
@@ -82,16 +79,22 @@ function selectAction!(spw::SPW, acts::Vector{Action}, s0::State)
         spw.stats[s0Hash] = StateStat(length(acts))
     end
 
-    
+
+
+    #TODO: allocate these outside and pass them afterward
+    #we need this to be able to restore the state!    
     s0_orig = deepcopy(s0)
-    
+    #This is a workspace variable to avoid having to re-allocate
     sp0 = deepcopy(s0)
     
     for i = 1:spw.pars.n 
         simulate!(spw,acts, s0,sp0,spw.pars.d)
         copy!(s0, s0_orig) #make sure we reset s0 everytime!
     end
-    
+
+    #get the list of allowable actions for this state
+    #We need to do this since simulate! will work on acts
+    spw.pars.Afun!(acts, s0)     
     #Choose action with highest apporoximate q-value 
     return acts[indmax(spw.stats[s0Hash].q)]::Action 
 end
