@@ -62,6 +62,10 @@ function X2S(X::XType)
 end
 
 
+#TODO: Find a way to not have to allocate all of this memory especially
+#for the MCTS case
+
+
 #Get all possible states, allowing replacement, but order does not matter:
 const g_Scomp = combos_with_replacement(pattern.g_allstates, g_nVehicles)
 const g_Xcomp = XType[S2X(s) for s in g_Scomp]

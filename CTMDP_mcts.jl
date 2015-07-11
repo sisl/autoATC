@@ -101,12 +101,12 @@ mctsPolicy = S -> MCTS.selectAction!(mcts, actWorkspace, S)
 
 
 # const S = [:LD2, :RB1, :R, :U1]
-# 
+#  
 # function test(S, n)
-#     for lo in 1:n 
-#         mctsPolicy(S) 
-#     end
-# end
-# 
+#      for lo in 1:n 
+#          mctsPolicy(S) 
+#      end
+#  end
+#  
 # @time test(S,1)
 # @time test(S,10)
