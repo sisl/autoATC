@@ -54,17 +54,17 @@ function getNextState!(Snew::SType, Snow::SType, a::typeof(pattern.g_noaction), 
     return nothing
 end
 
-function getReward!(R::Float32, S::SType, a::typeof(pattern.g_noaction), pars)    
+function getReward(S::SType, a::typeof(pattern.g_noaction), pars::MCTS.SPWParams)    
     #assert(pars.β < 0.9f0) #We make the assumption that action cost is small relative to collision cost
     
     R = Reward(S, a, pars.β::Float32)
     
-    terminate = false;
+    pars.terminate = false;
     #This is a terminal state...
     if( R <=  collisionCost)
-        terminate = true
+        pars.terminate = true
     end
-    return terminate
+    return R
 end
 
 Afun = pattern.validActions
@@ -76,8 +76,10 @@ assert (SType == MCTS.State)
 
 
 
-function genMCTSdict(d, ec, n, β)
-    pars = MCTS.SPWParams{MCTS.Action}(true, d,ec,n,β, Afun,rollOutPolicy,getNextState!,getReward!, S2LIDX, mctsRng)
+function genMCTSdict(d, ec, n, β, resetDict )
+    terminate=false#doesnt matter, getReward will update this at each call
+    
+    pars = MCTS.SPWParams{MCTS.Action}(terminate, resetDict, d,ec,n,β, Afun,rollOutPolicy,getNextState!,getReward, S2LIDX, mctsRng)
     mcts = MCTS.SPW{MCTS.Action}(pars)
     return mcts
 end
@@ -86,7 +88,9 @@ d = int16(50)
 ec = abs(collisionCost)
 n = int32(1000)
 β = 0.0f0
-mcts = genMCTSdict(d, ec, n, β)
+resetDict = true #reset dictionary every cycle
+
+mcts = genMCTSdict(d, ec, n, β, resetDict)
 
 mctsPolicy = S -> MCTS.selectAction!(mcts, S)
 

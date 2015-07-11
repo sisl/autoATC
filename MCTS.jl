@@ -19,6 +19,7 @@ typealias State Array{Symbol,1}
 typealias Action (Int8, Symbol)
 
 type SPWParams{T<:Action}
+    terminate::Bool             #Flag to be populated by getReward to indicate we have reached terminal state
     resetDict::Bool             #Whether to reset dictionary
     
     d::Depth                    # search depth
@@ -26,11 +27,10 @@ type SPWParams{T<:Action}
     n::Int32                    # number of iterations
     β::Float32
     
-    
     A::Function                 # set of allowable actions 
     rolloutPolicy::Function     # returns action for rollout policy
     getNextState!::Function     # takes state and action as arguments and populates next state from generative model
-    getReward!::Function         # takes state and action as arguments and returns reward
+    getReward::Function         # takes state and action as arguments and returns reward
     hashState::Function
     rng::AbstractRNG            # random number generator
 
@@ -108,7 +108,7 @@ function simulate!(spw::SPW, s::State,sp::State, d::Depth)
         return 0.0f0::Reward
     end
     
-#     tabs = string([" " for i in 1:(2*d)]...)
+#      tabs = string([" " for i in 1:(2*d)]...)
 
     
     #println(tabs, "(",d,")", "Entry s=",s, " -> sp =",sp)
@@ -158,9 +158,8 @@ function simulate!(spw::SPW, s::State,sp::State, d::Depth)
         spw.pars.getNextState!(sp, s,a,spw.pars.rng)
         #println(tabs, "(",d,")", "Next  s=",s, " -> sp =",sp)
         #Estimate the reward
-        q = 0.0f0::Reward
-        terminate = spw.pars.getReward!(q,s,a, spw.pars)::Bool 
-        if !terminate
+        q = spw.pars.getReward(s,a, spw.pars)::Reward 
+        if !spw.pars.terminate
             #Note that a call to simulate! will change s and sp, but we 
             #don't care at this point since we no longer need their values!
             q += simulate!(spw,sp,s,int16(d-1)) #Note that s is now just a temp storage variable
@@ -182,26 +181,24 @@ end
 
 function rollout!(spw::SPW,s::State,sp::State,d::Depth)
     # Runs a rollout simulation using the default policy
-#     tabs = string([" " for i in 1:(2*d)]...)
+#      tabs = string([" " for i in 1:(2*d)]...)
 
     R = 0.0f0::Reward
-    if d == 0
-        return R::Reward
-    else
+    if d > 0
         #println(tabs, "(",d,")", "RolloutEnter  s=",s, " -> sp =",sp) 
         a  = spw.pars.rolloutPolicy(s,spw.pars.rng)
         #This runs a roll-out simulation, note the lack of discount factor...
         
-        terminate = spw.pars.getReward!(R,s,a, spw.pars)::Bool
-        if !terminate
+        R = spw.pars.getReward(s,a, spw.pars)::Reward
+        if !spw.pars.terminate
             spw.pars.getNextState!(sp,s,a,spw.pars.rng)
             #println(tabs, "(",d,")", "RolloutNext  s=",s, " -> sp =",sp)
             R += rollout!(spw,sp,s,int16(d-1))::Reward
         end
         
         #println(tabs, "(",d,")", "RolloutExit  s=",s, " -> sp =",sp)
-        return R::Reward
     end 
+    return R
 end
 
 end # module
