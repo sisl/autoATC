@@ -17,16 +17,14 @@ end
 #so only one needs to transition at a time!
 #Since we are using Monte-Carlo, we might be able to use the history
 #and actually handle non-exponential time distributions?
-
-
-function findFirsti(Snow::SType, trantimes::typeof(pattern.teaTime), rngState)
+function findFirsti(Snow::SType, trantimes::typeof(pattern.teaTime), rngState::AbstractRNG)
     #Find which state will transition
     N = length(Snow)
-    p = rand(rngState, N)
+
     tmin = Inf
     ifirst = 1
     for i in 1:N
-       t = -trantimes[Snow[i]] * log(1-p[i]) 
+       t = -trantimes[Snow[i]] * log(1-rand(rngState))
        if t < tmin
          ifirst = i
          tmin = t
@@ -38,33 +36,35 @@ end
 
 
 
-function getNextState(Snow::SType, a::typeof(pattern.g_noaction), rngState)
-    Snew = deepcopy(Snow)
-    
-    ifirst = findFirsti(Snow, pattern.teaTime, rngState)
+function getNextState!(Snew::SType, Snow::SType, a::typeof(pattern.g_noaction), rngState::AbstractRNG)
+    #copy!(Snew, Snow)
     
     #Only transition the one with the earliest event in the race!
-    Snew[ifirst] = pattern.randomChoice(Snow[ifirst], a[1] == ifirst, a[2]; rngState=rngState)
+    ifirst = findFirsti(Snow, pattern.teaTime, rngState)
+    #Snew[ifirst] = randomChoice(Snow[ifirst], a[1] == ifirst, a[2], rngState)
     
-#   This works for an MDP but not a CTMDP !    
-#     for i in 1:length(Snow)
-#         Snew[i] = pattern.randomChoice(Snow[i], a[1] == i, a[2]; rngState=rngState)
-#     end
-    return Snew
+    for i in 1:length(Snew)
+        if i == ifirst
+            Snew[ifirst] = randomChoice(Snow[ifirst], a[1] == ifirst, a[2], rngState)
+        else
+            Snew[i] = Snow[i] 
+        end
+    end
+#     
+    return nothing
 end
 
-function getReward(S::SType, a::typeof(pattern.g_noaction), pars)    
-    β = pars.β
-    assert(β < 0.9f0) #We make the assumption that action cost is small relative to collision cost
+function getReward!(R::Float32, S::SType, a::typeof(pattern.g_noaction), pars)    
+    #assert(pars.β < 0.9f0) #We make the assumption that action cost is small relative to collision cost
     
-    R = Reward(S, acomp, β)
+    R = Reward(S, a, pars.β::Float32)
     
     terminate = false;
     #This is a terminal state...
     if( R <=  collisionCost)
         terminate = true
     end
-    return (R, terminate)
+    return terminate
 end
 
 Afun = pattern.validActions
@@ -77,20 +77,24 @@ assert (SType == MCTS.State)
 
 
 function genMCTSdict(d, ec, n, β)
-    pars = MCTS.SPWParams{MCTS.Action}(d,ec,n,β, Afun,rollOutPolicy,getNextState,getReward, mctsRng)
+    pars = MCTS.SPWParams{MCTS.Action}(true, d,ec,n,β, Afun,rollOutPolicy,getNextState!,getReward!, S2LIDX, mctsRng)
     mcts = MCTS.SPW{MCTS.Action}(pars)
     return mcts
 end
 
 d = int16(50)           
 ec = abs(collisionCost)
-n = int32(500)
+n = int32(1000)
 β = 0.0f0
 mcts = genMCTSdict(d, ec, n, β)
 
 mctsPolicy = S -> MCTS.selectAction!(mcts, S)
 
-
+# let S = [:LD2, :RB1, :R, :U1]
+# 
+# @time for lo in 1:10 MCTS.selectAction!(mcts, S) end
+# 
+# end
 
 
 

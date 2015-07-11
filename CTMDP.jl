@@ -101,7 +101,7 @@ function X2LIDX(X::XType)
     #the kronecker math uses a row major numbering
     index = X[g_nVehicles]
     stride = 1
-    for k = (g_nVehicles-1):-1:1
+    for k in (g_nVehicles-1):-1:1
         stride = stride * g_nNodes
         index += (X[k]-1) * stride
     end

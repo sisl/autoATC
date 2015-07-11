@@ -296,7 +296,7 @@ function transition!(ac::airplane)
     #If we arrived to the end of a leg, we need to decide where to go next
     #We do that based on any atcCommand that we have received
     a = ac.atcCommand
-    sn = randomChoice(s, a != :∅, a)
+    sn = randomChoice(s, a != :∅, a, pattern.rng)
     #Get rid of the phase information
     sn = phaseFree(sn)
     ac.atcCommand = :∅

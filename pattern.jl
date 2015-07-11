@@ -11,6 +11,19 @@ export randomChoice
 
 rng = MersenneTwister()
 
+
+##############
+#
+#############
+function isin{T}(x::T, L::Vector{T})
+    for k in 1:length(L)
+        if L[k] == x
+            return true
+        end
+    end
+    return false
+end
+
 ###########################################
 #problem definitions
 ###########################################
@@ -27,7 +40,6 @@ const g_nullAct = Int8[0,0]
 #############################################
 #Set up states
 const NextStates = (Symbol => Array{Symbol, 1})[]
-
 #############################################
 
 function addConn!(d, f, t)
@@ -66,7 +78,7 @@ const nPhases = 4; #must be >= 1
 phaseFreeStates = [:R, :LDep, :LArr, :RDep, :RArr]
 *(a::Symbol, b::Symbol) = symbol(string(a, b))
 function appendPhase(s::Symbol, k::Int64)
-    if s in phaseFreeStates || k >= nPhases || k <= 0
+    if isin(s, phaseFreeStates) || k >= nPhases || k <= 0
         return s
     else
         return symbol(string("ϕ",k,"_", s))
@@ -79,7 +91,7 @@ end
 
 const int0offset =  int('0')
 function phaseNum(s::Symbol)
-    if s in phaseFreeStates
+    if isin(s, phaseFreeStates)
         return 1
     else
         st = string(s)
@@ -263,23 +275,36 @@ symmetrize!(xy, x -> [x[1], -x[2]])
 #############################################
 #Probability of following ATC command
 #############################################
-function weightedChoice(weights::Vector{Float64}, rngState)
-    rnd = (rand(rngState)) * sum(weights)
-    for i in 1:length(weights)
-        rnd -= weights[i]
+# function weightedChoice(weights::Vector{Float64}, rngState::AbstractRNG)
+#     rnd = (rand(rngState)) * sum(weights)
+#     for i in 1:length(weights)
+#         rnd -= weights[i]
+#         if rnd < 0.0
+#             return i
+#         end
+#     end
+#     return length(weights)
+# end
+#############################################
+function randomChoice(from::Symbol, receivedATC::Bool, atcDesired::Symbol, rngState::AbstractRNG)
+#############################################
+#     snext = NextStates[from]
+#     pnext = Float64[probFromTo(from, to, receivedATC, atcDesired) for to in snext]
+# 
+#     return snext[weightedChoice(pnext, rngState)]
+    
+    snext = NextStates[from]
+    rnd = rand(rngState)
+    
+    N = length(snext)
+    for k in 1:N
+        rnd -= probFromTo(from, snext[k], receivedATC, atcDesired)
         if rnd < 0.0
-            return i
+            return snext[k]
         end
     end
-    return length(weights)
-end
-#############################################
-function randomChoice(from::Symbol, receivedATC::Bool, atcDesired::Symbol; rngState=rng)
-#############################################
-    snext = NextStates[from]
-    pnext = Float64[probFromTo(from, to, receivedATC, atcDesired) for to in snext]
-
-    return snext[weightedChoice(pnext, rngState)]
+    return snext[N]
+    
 end
 
 #############################################
@@ -287,7 +312,8 @@ function probFromTo(from::Symbol, to::Symbol, receivedATC::Bool, atcDesired::Sym
 #############################################
     p = 0.
     allNext = NextStates[from]
-    if to in allNext
+
+    if isin(to, allNext) 
         Nnext = length(allNext);
         #Only one option, use it
         if Nnext == 1
@@ -296,18 +322,16 @@ function probFromTo(from::Symbol, to::Symbol, receivedATC::Bool, atcDesired::Sym
         #All other states are equally likely
         elseif !receivedATC || !(atcDesired in allNext)
             p = 1./ Nnext
-            
-            #Ugly handling of Taxi/Runway interaction!
-            fromF = phaseFree(from)
-            toF = phaseFree(to)
-            if(fromF == :R)
-                if toF == :T
+                        
+            #Ugly handling of Taxi/Runway interaction!           
+            if isin(from, pattern.sRunway)
+                if isin(to, pattern.sTaxi)
                     p = 0.1
                 else
                     p = 0.9
                 end
-            elseif (from == :T)
-                if toF == :T
+            elseif isin(from, pattern.sTaxi)
+                if isin(to, pattern.sTaxi)
                     p = 0.1
                 else
                     p = 0.9
@@ -316,9 +340,9 @@ function probFromTo(from::Symbol, to::Symbol, receivedATC::Bool, atcDesired::Sym
         #received ATC command, collaborate!
         else
           if to == atcDesired
-            p = α
+                p = α::Float64
           else
-            p = (1-α)/(Nnext-1)
+                p = (1-α::Float64)/(Nnext-1)
           end
         end
     end
@@ -480,7 +504,7 @@ function simulate(s, policy::Function; N=10, endEarly = false)
         a = policy(Snow)
         Snew = deepcopy(Snow)
         for i in 1:length(Snow)
-            Snew[i] = randomChoice(Snow[i], a[1] == i, a[2])
+            Snew[i] = randomChoice(Snow[i], a[1] == i, a[2], rng)
         end
         push!(S, Snew)
         push!(A, a)
