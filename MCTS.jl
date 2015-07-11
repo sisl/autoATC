@@ -27,7 +27,7 @@ type SPWParams{T<:Action}
     n::Int32                    # number of iterations
     β::Float32
     
-    A::Function                 # set of allowable actions 
+    Afun!::Function              # set of allowable actions 
     rolloutPolicy::Function     # returns action for rollout policy
     getNextState!::Function     # takes state and action as arguments and populates next state from generative model
     getReward::Function         # takes state and action as arguments and returns reward
@@ -62,10 +62,10 @@ end
 #the parameters for the SPW structure which contains the parameters
 #and the statistics for the tree
 # This function calls simulate and chooses the approximate best action from the reward approximations 
-function selectAction!(spw::SPW,s0::State)
+function selectAction!(spw::SPW, acts::Vector{Action}, s0::State)
     
-    #TODO: try to call A as little as possible?
-    acts = spw.pars.A(s0) #get the allowable actions
+    #get the list of allowable actions for this state
+    spw.pars.Afun!(acts, s0) 
     
     
     if(spw.pars.resetDict)
@@ -88,7 +88,7 @@ function selectAction!(spw::SPW,s0::State)
     sp0 = deepcopy(s0)
     
     for i = 1:spw.pars.n 
-        simulate!(spw,s0,sp0,spw.pars.d)
+        simulate!(spw,acts, s0,sp0,spw.pars.d)
         copy!(s0, s0_orig) #make sure we reset s0 everytime!
     end
     
@@ -100,7 +100,7 @@ end
 
 #Sp is passed-in to avoid to have to allocate memory
 #Note that this function will mangle s
-function simulate!(spw::SPW, s::State,sp::State, d::Depth)
+function simulate!(spw::SPW, acts::Vector{Action}, s::State, sp::State, d::Depth)
     # This function returns the reward for one iteration of MCTS
     
     #We have reached the bottom, bubble up.
@@ -115,8 +115,8 @@ function simulate!(spw::SPW, s::State,sp::State, d::Depth)
     
     #TODO: Make the A(s) function better!
     #Determine actions available for this state
-    acts = spw.pars.A(s)
-    nActs = length(acts)::Int64
+    nActs = spw.pars.Afun!(acts, s)
+    #nActs = length(acts)::Int64
     
     #If this state has no statistics yet (i.e. first visit)
     #perform a roll-out
@@ -155,14 +155,14 @@ function simulate!(spw::SPW, s::State,sp::State, d::Depth)
         a  = acts[i]
         
         #Randomly select the next state based on the action used
-        spw.pars.getNextState!(sp, s,a,spw.pars.rng)
+        spw.pars.getNextState!(sp, s, a,spw.pars.rng)
         #println(tabs, "(",d,")", "Next  s=",s, " -> sp =",sp)
         #Estimate the reward
         q = spw.pars.getReward(s,a, spw.pars)::Reward 
         if !spw.pars.terminate
             #Note that a call to simulate! will change s and sp, but we 
             #don't care at this point since we no longer need their values!
-            q += simulate!(spw,sp,s,int16(d-1)) #Note that s is now just a temp storage variable
+            q += simulate!(spw,acts, sp,s,int16(d-1)) #Note that s is now just a temp storage variable
         end
         #println(tabs, "(",d,")", "Exit  s=",s, " -> sp =",sp)
 

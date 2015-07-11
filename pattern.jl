@@ -3,6 +3,9 @@ module pattern
 using HDF5, JLD
 using Iterators
 
+using auxFuns
+
+
 export g_noaction, g_nullAct
 export g_allstates, g_allstates_string, NextStates
 export nPhases, phaseFree, phaseNum, phaseState, appendPhase
@@ -11,22 +14,6 @@ export randomChoice
 
 rng = MersenneTwister()
 
-
-##############
-#
-#############
-function isin{T}(x::T, L::Vector{T})
-    for k in 1:length(L)
-        if L[k] == x
-            return true
-        end
-    end
-    return false
-end
-
-###########################################
-#problem definitions
-###########################################
 
 
 #############################################
@@ -373,6 +360,36 @@ function validActions(S)
   return A
 end
 
+
+function validActions!(acts::Vector{typeof(g_noaction)}, S::Vector{Symbol})
+  nActs = 0
+
+  nActs += 1
+  #acts[nActs] = copy(g_noaction) #should be the case by default
+  for i in 1:length(S)
+    s = S[i]
+    #on runway or in departure state, can't tell it what to do
+    if isin(s, sDep) || isin(s, sRunway)
+      continue
+    end
+    
+    snext = NextStates[s]
+    nX = length(NextStates[s])
+    
+    if nX > 1
+      for j in 1:nX
+        if isin(snext[j], sDep) #Can't tell aircraft to depart
+          continue
+        end
+        nActs += 1
+        acts[nActs] = (i, snext[j])
+      end
+    end
+  end
+  return nActs
+end
+
+
 function extAct2compAct(act::typeof(g_noaction), S)
   cAct = copy(g_nullAct)
   if act != g_noaction
@@ -448,15 +465,15 @@ function validCompActions!(compActs::Vector{typeof(g_nullAct)}, X::Vector{Int64}
     #Instead using little for loop
     isrepeated = false
     for j in 1:(i-1)
-        (isrepeated = x == X[j]) && break
+        (isrepeated = (x == X[j])) && break
     end
-    if isrepeated || x in xDep || x in xRunway #||  x in X[1:(i-1)]
+    if isrepeated || isin(x, xDep) || isin(x, xRunway) #||  x in X[1:(i-1)]
       continue
     end
     nX = length(NextXtates[x])
     if nX > 1
       for j in 1:nX
-        if NextXtates[x][j] in xDep #Can't tell aircraft to depart
+        if isin(NextXtates[x][j], xDep) #Can't tell aircraft to depart
           continue
         end
         nActs += 1

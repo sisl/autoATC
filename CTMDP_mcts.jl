@@ -8,7 +8,7 @@ mctsRng = MersenneTwister(1)
 
 
 
-function rollOutPolicy(s::SType, rngState)
+function rollOutPolicy(s::SType, rngState::AbstractRNG)
     return pattern.g_noaction::MCTS.Action #our roll-out policy is the silent policy
 end
 
@@ -67,7 +67,7 @@ function getReward(S::SType, a::typeof(pattern.g_noaction), pars::MCTS.SPWParams
     return R
 end
 
-Afun = pattern.validActions
+Afun! = pattern.validActions!
 
 
 assert (typeof(pattern.g_noaction) == MCTS.Action)
@@ -79,7 +79,7 @@ assert (SType == MCTS.State)
 function genMCTSdict(d, ec, n, β, resetDict )
     terminate=false#doesnt matter, getReward will update this at each call
     
-    pars = MCTS.SPWParams{MCTS.Action}(terminate, resetDict, d,ec,n,β, Afun,rollOutPolicy,getNextState!,getReward, S2LIDX, mctsRng)
+    pars = MCTS.SPWParams{MCTS.Action}(terminate, resetDict, d,ec,n,β, Afun!,rollOutPolicy,getNextState!,getReward, S2LIDX, mctsRng)
     mcts = MCTS.SPW{MCTS.Action}(pars)
     return mcts
 end
@@ -92,17 +92,21 @@ resetDict = true #reset dictionary every cycle
 
 mcts = genMCTSdict(d, ec, n, β, resetDict)
 
-mctsPolicy = S -> MCTS.selectAction!(mcts, S)
+actWorkspace = Array(extActType, g_nCompActs)
+actWorkspace[1] = copy(pattern.g_noaction)
 
-# let S = [:LD2, :RB1, :R, :U1]
+mctsPolicy = S -> MCTS.selectAction!(mcts, actWorkspace, S)
+
+
+
+
+# const S = [:LD2, :RB1, :R, :U1]
 # 
-# @time for lo in 1:10 MCTS.selectAction!(mcts, S) end
-# 
+# function test(S, n)
+#     for lo in 1:n 
+#         mctsPolicy(S) 
+#     end
 # end
-
-
-
 # 
-# gridworld = GenerativeModel(getInitialState,getNextState,getReward)
-# 
-# simulate(gridworld,mcts,policy,nSteps,rng)
+# @time test(S,1)
+# @time test(S,10)
