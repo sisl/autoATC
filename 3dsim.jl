@@ -69,7 +69,7 @@ function simulate!(acList::Vector{airplane}, Tend, policyTiming::Symbol, policyF
         acList[act[1]].atcCommand = act[2]
         alertCount += 1
       end
-#       println(t, "Ready for command:", [(pattern.appendPhase(ac.navDest[1],ac.navPhase) , ac.readyForATC) for ac in acList], act)
+       #println(t, "Ready for command:", [(pattern.appendPhase(ac.navDest[1],ac.navPhase) , ac.readyForATC) for ac in acList], act)
     end
 
     #Fly pattern logic for all aircraft

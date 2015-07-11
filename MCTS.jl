@@ -63,7 +63,14 @@ end
 #and the statistics for the tree
 # This function calls simulate and chooses the approximate best action from the reward approximations 
 function selectAction!(spw::SPW, acts::Vector{Action}, s0::State)
+       
+    nActs = spw.pars.Afun!(acts, s0)
     
+    #If there's only one action to be taken, no point in wasting time...
+    if(nActs == 1)
+        return acts[1]
+    end
+
     #Reset the dictionary if told to
     if(spw.pars.resetDict)
         #spw.stats = Dict{StateKey,StateStat}()
@@ -71,12 +78,12 @@ function selectAction!(spw::SPW, acts::Vector{Action}, s0::State)
             fill!(v.n, 0.0f0)
             fill!(v.q, 0.0f0)
         end
-    end
+    end    
     
     #This is to avoid the first call to simulate wasting a rollout
     s0Hash = spw.pars.hashState(s0)::StateKey
     if !haskey(spw.stats, s0Hash)
-        spw.stats[s0Hash] = StateStat(length(acts))
+        spw.stats[s0Hash] = StateStat(nActs)
     end
 
 
@@ -94,7 +101,10 @@ function selectAction!(spw::SPW, acts::Vector{Action}, s0::State)
 
     #get the list of allowable actions for this state
     #We need to do this since simulate! will work on acts
-    spw.pars.Afun!(acts, s0)     
+    
+    #TODO: Find a way to avoid calling this function a 2nd time!
+    
+    nActs = spw.pars.Afun!(acts, s0)     
     #Choose action with highest apporoximate q-value 
     return acts[indmax(spw.stats[s0Hash].q)]::Action 
 end
