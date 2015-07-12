@@ -5,23 +5,48 @@ using Iterators
 
 using auxFuns
 
+export g_noaction, g_nullAct, isNullAct
+export g_allstates, g_allstates_string 
+export g_nNodes, g_nVehicles
 
-export g_noaction, g_nullAct
-export g_allstates, g_allstates_string, NextStates
 export nPhases, phaseFree, phaseNum, phaseState, appendPhase
+export randomChoice, NextStates
 
-export randomChoice
+export s2x, S2X, x2s, X2S
+export X2LIDX, S2LIDX, LIDX2X, LIDX2S
+
+export xType, sType, XType, SType, compActType, extActType, ActType
 
 rng = MersenneTwister()
-
-
 
 #############################################
 #Parameters
 #############################################
-α = 1.0; #Probability of following ATC command
+const α = 1.0; #Probability of following ATC command
+
+#Number of vehicle instances
+const g_nVehicles = 4
+
+###########################################
+###########################################
 const g_noaction = (int8(0), :∅)
 const g_nullAct = Int8[0,0]
+
+#Defining types
+typealias sType Symbol; typealias SType Vector{sType}
+typealias xType Int64 ; typealias XType Vector{xType}
+
+typealias compActType typeof(pattern.g_nullAct)
+typealias extActType  typeof(pattern.g_noaction)
+typealias ActType Union(compActType,extActType)
+
+function isNullAct(a::compActType)
+    return a[1] == g_nullAct[1] #assumes anything with a[1] == 0 is null
+end
+function isNullAct(a::extActType)
+    return a[1] == g_noaction[1] #assumes anything with a[1] == 0 is null
+end
+
 
 
 #############################################
@@ -61,7 +86,7 @@ end
 #Note that this will introduce (nPhases-1) as the last phase is
 #assumed to be the state itself.
 #We also assume that the actions are given at the last phase.
-const nPhases = 6; #must be >= 1
+const nPhases = 4; #must be >= 1
 phaseFreeStates = [:R, :LDep, :LArr, :RDep, :RArr]
 *(a::Symbol, b::Symbol) = symbol(string(a, b))
 function appendPhase(s::Symbol, k::Int64)
@@ -113,7 +138,6 @@ if(nPhases > 1)
 end
 allstates = unique([allstates, collect(keys(NextStates))])
 #######################################################
-
 sn = (Symbol => Int64)[]
 for i in 1:length(allstates)
     sn[allstates[i]] = i
@@ -123,6 +147,41 @@ const g_allstates = allstates;
 const g_sn = sn;
 const g_allstates_string = (UTF8String)[string(a) for a in g_allstates]
 
+#Number of nodes per instaces
+const g_nNodes = length(g_allstates)
+
+###########################################
+#Special states
+###########################################
+function listSpecialStates!(xOut, sOut, sList)
+    cnt = 0
+    for s in sList
+      for k in 1:nPhases
+        cnt += 1
+        sOut[cnt] = appendPhase(s,k)
+        xOut[cnt] = g_sn[sOut[cnt]]
+      end
+    end
+    resize!(sOut, cnt)
+    resize!(xOut, cnt)
+end
+const xDep = Array(xType, 2 * nPhases)
+const sDep = Array(sType, 2 * nPhases)
+listSpecialStates!(xDep, sDep, [:LDep, :RDep])
+const xSafe = Array(xType, 5 * nPhases)
+const sSafe = Array(sType, 5 * nPhases)
+listSpecialStates!(xSafe, sSafe, [:LDep, :RDep, :LArr, :RArr, :T])
+const xTaxi = Array(xType, 2 * nPhases)
+const sTaxi = Array(sType, 2 * nPhases)
+listSpecialStates!(xTaxi, sTaxi, [:T])
+const xRunway = Array(xType, 2 * nPhases)
+const sRunway = Array(sType, 2 * nPhases)
+listSpecialStates!(xRunway, sRunway, [:R])
+###########################################
+
+###########################################
+#Next states
+###########################################
 const NextXtates = Array(Vector{Int64}, length(g_allstates))
 maxNextStates = 0
 for x in 1:length(g_allstates)
@@ -130,8 +189,11 @@ for x in 1:length(g_allstates)
   NextXtates[x] = [g_sn[sp] for sp in NextStates[s]]
   maxNextStates = max(maxNextStates, length(NextXtates[x]))
 end
-
+const g_nMaxActs = maxNextStates * g_nVehicles + 1
+###########################################
 #Add transition times for each state in minutes
+###########################################
+
 teaTime = (Symbol => Float64)[]
 
 teaTime[:T]=230.26
@@ -165,24 +227,6 @@ for s in teaKeys
 end
 
 
-#
-# teaTime[:T] = 5
-# teaTime[:R] = 0.5
-# teaTime[:GO] = 1
-#
-# teaTime[:U1] = 1; teaTime[:U2] = 2
-#
-# teaTime[:LX1] = teaTime[:LX2] = 0.5
-#
-# teaTime[:LD0] = 2
-# teaTime[:LD1] = teaTime[:LD2] = 1.5
-# teaTime[:LD3] = 2
-#
-# teaTime[:LB1] = teaTime[:LB2] = 0.5
-#
-# teaTime[:F0] = 2; teaTime[:F1] = 1
-# teaTime[:LDep] = 10; teaTime[:LArr] = 2
-#
 # #Temporary hack, set all of them to the same value...
 # for k in keys(teaTime)
 #     teaTime[k] = 0.1;
@@ -201,14 +245,11 @@ function symmetrize!(halfDict, symFun)
       end
     end
 end
-
 symmetrize!(teaTime, x -> x)
 
-using Base.Test
-@test length(teaTime) == length(g_allstates)
+#Make sure we didn't miss anything
 
-
-
+assert(length(teaTime) == length(g_allstates))
 #############################################
 ## Possible transitions
 #############################################
@@ -243,7 +284,6 @@ xy[:LArr] = [-dx, 2*dy]
 
 symmetrize!(xy, x -> [x[1], -x[2]])
 
-
 ##
 #############################################
 ##Printing to do file for vizualization
@@ -258,20 +298,6 @@ symmetrize!(xy, x -> [x[1], -x[2]])
 #end
 
 
-
-#############################################
-#Probability of following ATC command
-#############################################
-# function weightedChoice(weights::Vector{Float64}, rngState::AbstractRNG)
-#     rnd = (rand(rngState)) * sum(weights)
-#     for i in 1:length(weights)
-#         rnd -= weights[i]
-#         if rnd < 0.0
-#             return i
-#         end
-#     end
-#     return length(weights)
-# end
 #############################################
 function randomChoice(from::Symbol, receivedATC::Bool, atcDesired::Symbol, rngState::AbstractRNG)
 #############################################
@@ -416,32 +442,6 @@ function compAct2extAct(act::typeof(g_nullAct), S)
   return eAct
 end
 
-
-function listSpecialStates!(xOut, sOut, sList)
-    cnt = 0
-    for s in sList
-      for k in 1:nPhases
-        cnt += 1
-        sOut[cnt] = appendPhase(s,k)
-        xOut[cnt] = g_sn[sOut[cnt]]
-      end
-    end
-    resize!(sOut, cnt)
-    resize!(xOut, cnt)
-end
-const xDep = Array(Int64, 2 * nPhases)
-const sDep = Array(Symbol, 2 * nPhases)
-listSpecialStates!(xDep, sDep, [:LDep, :RDep])
-const xSafe = Array(Int64, 5 * nPhases)
-const sSafe = Array(Symbol, 5 * nPhases)
-listSpecialStates!(xSafe, sSafe, [:LDep, :RDep, :LArr, :RArr, :T])
-const xTaxi = Array(Int64, 2 * nPhases)
-const sTaxi = Array(Symbol, 2 * nPhases)
-listSpecialStates!(xTaxi, sTaxi, [:T])
-const xRunway = Array(Int64, 2 * nPhases)
-const sRunway = Array(Symbol, 2 * nPhases)
-listSpecialStates!(xRunway, sRunway, [:R])
-
 function validCompactActions(S)
   actions = validActions(S)
   compActions = Array(typeof(g_nullAct),length(actions),1)
@@ -496,17 +496,86 @@ function Transition(S::Array{Symbol,1}, a::typeof(g_noaction), Snext::Array{Symb
     return p;
 end
 
-
 function Transition(S::Array{Symbol,1}, acomp::typeof(g_nullAct), Snext::Array{Symbol,1})
   aext = compAct2extAct(acomp, S)
   return Transition(S, aext, Snext)
 end
 
+###########################################
+###########################################
+#Awesome functions for indexing magic :)
+###########################################
+#Convention is as follows:
+#s is the substate in the pattern of a single vehicle as a symbol
+#x is the substate in the pattern of a single vehicle as an index
 
+#S is the state as an array of symbols of all vehicles S = [s1, s2, ...]
+#X is the state as an array of Int64 of all vehicles X = [x1, x2, ...]
 
+#CIDX is the compact index of the state (where order does not matter) there are C(n+k-1, k) of them
+#LIDX is the long    index of the state (where order does matter)     there are n^k of them
+###########################################
+###########################################
 
+#Going between symbol representation and index representation
+function s2x(s::sType)
+  return (g_sn::Dict{sType, xType})[s]
+end
+function S2X(S::SType)
+  return xType[(g_sn::Dict{sType,xType})[s] for s in S]
+end
+function x2s(x::xType)
+  return (g_allstates::Vector{sType})[x]
+end
+function X2S(X::XType)
+  return sType[(g_allstates::Vector{sType})[x] for x in X]
+end
 
+#Long indices are obtained from sub2ind/ind2sub
+#where the dimensions are governed by the number
+#of nodes and number of vehicles!
+const g_XDIMS = tuple((g_nNodes*ones(Int64, g_nVehicles))...)
 
+function X2LIDX(X::XType)
+    #Note the reverse due to sub2ind using column major numbering whereas
+    #the kronecker math uses a row major numbering
+    index = X[g_nVehicles]
+    stride = 1
+    for k in (g_nVehicles-1):-1:1
+        stride = stride * g_nNodes
+        index += (X[k]-1) * stride
+    end
+    return index
+end
+
+#same as above, but takes permutation into account
+function X2LIDX(X::XType, perm::XType)
+    index = X[perm[g_nVehicles]]
+    stride = 1
+    for k = (g_nVehicles-1):-1:1
+        stride = stride * g_nNodes
+        index += (X[perm[k]] -1) * stride
+    end
+    return index
+end
+
+function S2LIDX(S::SType)
+  return X2LIDX(S2X(S))
+end
+
+function LIDX2X(lidx::Int64)
+  #TODO: make this faster ...
+  X_rev = xType[ind2sub(g_XDIMS, lidx) ...]
+  return reverse(X_rev)
+end
+function LIDX2S(lidx::Int64)
+  X = LIDX2X(lidx)
+  return X2S(X)
+end
+
+#############################################
+#Old simulation code from MDP...
+#TODO: Delete this?
 #############################################
 function simulate(s; policy::Dict = Dict(), N=10)
   return simulate(s, (s-> policy[s]), N)

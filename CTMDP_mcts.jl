@@ -1,20 +1,16 @@
-using MCTS
-using pattern
+module CTMDP_mcts
 
-include("CTMDP.jl")
+using pattern
+using RewardFun
+using MCTS
 
 mctsRng = MersenneTwister(1)
-
-
-
 
 function rollOutPolicy(s::SType, rngState::AbstractRNG)
     return pattern.g_noaction::MCTS.Action #our roll-out policy is the silent policy
 end
 
-
-#TODO: Need to deal with the fact that this is a CTMDP,
-#so only one needs to transition at a time!
+#TODO:
 #Since we are using Monte-Carlo, we might be able to use the history
 #and actually handle non-exponential time distributions?
 function findFirsti(Snow::SType, trantimes::typeof(pattern.teaTime), rngState::AbstractRNG)
@@ -35,13 +31,9 @@ function findFirsti(Snow::SType, trantimes::typeof(pattern.teaTime), rngState::A
 end
 
 
-
 function getNextState!(Snew::SType, Snow::SType, a::typeof(pattern.g_noaction), rngState::AbstractRNG)
-    #copy!(Snew, Snow)
-    
     #Only transition the one with the earliest event in the race!
     ifirst = findFirsti(Snow, pattern.teaTime, rngState)
-    #Snew[ifirst] = randomChoice(Snow[ifirst], a[1] == ifirst, a[2], rngState)
     
     for i in 1:length(Snew)
         if i == ifirst
@@ -61,7 +53,7 @@ function getReward(S::SType, a::typeof(pattern.g_noaction), pars::MCTS.SPWParams
     
     pars.terminate = false;
     #This is a terminal state...
-    if( R <=  collisionCost)
+    if( R <=  RewardFun.collisionCost)
         pars.terminate = true
     end
     return R
@@ -69,36 +61,41 @@ end
 
 Afun! = pattern.validActions!
 
-
 assert (typeof(pattern.g_noaction) == MCTS.Action)
 assert (SType == MCTS.State)
 
-
-
-
-function genMCTSdict(d, ec, n, β, resetDict )
+function genMCTSdict(d, ec, n, β, resetDict)
     terminate=false#doesnt matter, getReward will update this at each call
-    
-    pars = MCTS.SPWParams{MCTS.Action}(terminate, resetDict, d,ec,n,β, Afun!,rollOutPolicy,getNextState!,getReward, S2LIDX, mctsRng)
+    pars = MCTS.SPWParams{MCTS.Action}(terminate, resetDict, d,ec,n,β, 
+                Afun!,
+                rollOutPolicy,
+                getNextState!,
+                getReward,
+                S2LIDX,
+                mctsRng)
     mcts = MCTS.SPW{MCTS.Action}(pars)
     return mcts
 end
 
+###############################
+#Default parameters
+###############################
 d = int16(50)           
-ec = abs(collisionCost)
+ec = abs(RewardFun.collisionCost)
 n = int32(1000)
 β = 0.0f0
 resetDict = true #reset dictionary every cycle
 
 mcts = genMCTSdict(d, ec, n, β, resetDict)
 
-actWorkspace = Array(extActType, g_nCompActs)
+actWorkspace = Array(extActType, pattern.g_nMaxActs)
 actWorkspace[1] = copy(pattern.g_noaction)
 
-mctsPolicy = S -> MCTS.selectAction!(mcts, actWorkspace, S)
+function mctsPolicy(S::SType)  
+    return MCTS.selectAction!(mcts, actWorkspace, S)
+end
 
-
-
+export mcts, mctsPolicy
 
 # const S = [:LD2, :RB1, :R, :U1]
 #  
@@ -110,3 +107,5 @@ mctsPolicy = S -> MCTS.selectAction!(mcts, actWorkspace, S)
 #  
 # @time test(S,1)
 # @time test(S,10)
+
+end

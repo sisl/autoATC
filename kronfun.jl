@@ -1,3 +1,8 @@
+module kronfun
+
+export Qti_ABt
+
+
 ###############################
 #Defining the Kronecker delta summation operator
 function kronSum(A,B)
@@ -225,4 +230,7 @@ function Qti_ABt_lazy(At,Bt,K,i)
     end
 
     return Qt[:,i]
+end
+
+
 end
