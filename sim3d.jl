@@ -1,10 +1,15 @@
-# import Base.print
-# import Base.show
-# import Base.string
+module sim3d
 
 using airplaneType
 using SASS_sensor
 
+export simulate!
+
+#################################################
+#Simulation parameters
+#################################################
+#This seems way too fine for the resolution we need?
+#Would be nice to make this closer to 1second?
 const simdt = 0.25
 
 #################################################
@@ -100,6 +105,6 @@ function simulate!(acList::Vector{airplane}, Tend, policyTiming::Symbol, policyF
   return (idmin, tmax, alertCount, flightTime/length(acList), measurements)
 end
 
-
+end
 
 

@@ -27,6 +27,10 @@ const α = 1.0; #Probability of following ATC command
 #Number of vehicle instances
 const g_nVehicles = 4
 
+#Number of phases per state
+const nPhases = 4; #must be >= 1
+
+
 ###########################################
 ###########################################
 const g_noaction = (int8(0), :∅)
@@ -86,7 +90,6 @@ end
 #Note that this will introduce (nPhases-1) as the last phase is
 #assumed to be the state itself.
 #We also assume that the actions are given at the last phase.
-const nPhases = 4; #must be >= 1
 phaseFreeStates = [:R, :LDep, :LArr, :RDep, :RArr]
 *(a::Symbol, b::Symbol) = symbol(string(a, b))
 function appendPhase(s::Symbol, k::Int64)

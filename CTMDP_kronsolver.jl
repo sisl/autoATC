@@ -6,6 +6,9 @@ using RewardFun
 using HDF5, JLD
 
 
+export loadPolicy, savePolicy
+export ctmdpPolicy
+
 
 function combos_with_replacement(list, k)
     n = length(list)
@@ -364,6 +367,7 @@ function policy_S2a(S::SType, Aopt::Vector{compActType})
 end
 ##################################
 
+Aopt = Array(compActType)
 function savePolicy(Aopt, α, β_cost; prefix="")
     filename = "policies/" * prefix * "CTMDPpolicy_n_" * string(pattern.nPhases) * "_a_" * string(α) * "_b_" * string(β_cost) * ".jld"
     Aopt_idx = Int8[Aopt[i][1] for i in 1:length(Aopt)]
@@ -375,7 +379,12 @@ end
 function loadPolicy(α, β_cost; prefix="")
     filename = "policies/" * prefix * "CTMDPpolicy_n_" * string(pattern.nPhases) * "_a_" * string(α) * "_b_" * string(β_cost) * ".jld"
     data = JLD.load(filename)
+    global Aopt
     Aopt = compActType[[data["Aopt_idx"][i] , data["Aopt_act"][i]] for i in 1:length(data["Aopt_idx"])]
+end
+
+function ctmdpPolicy(S::Stype)
+ return policy_S2a(S, Aopt::Vector{compActType})
 end
 
 ##################################
