@@ -2,8 +2,8 @@
 using HDF5, JLD 
 
 parallel = :local
-ncpu_local = CPU_CORES / 2
-machines = [("zouhair@cheonan.stanford.edu", 4, "/usr/bin"), ("zouhair@tula.stanford.edu", 20, "/usr/bin")]
+ncpu_local = 2
+machines = [("zouhair@cheonan.stanford.edu", 2, "/usr/bin"), ("zouhair@tula.stanford.edu", 2, "/usr/bin")]
 
 
 #TODO: Figure out how to make this more robust?
