@@ -36,13 +36,13 @@ println("Loading code everywhere")
 require("runSims_parallel.jl")
 
 #################################
-println("running!")
+println("running using #", pattern.nPhases, " phases")
 #################################
 tic()
 allResults = runAllSims()
 toc()
 #################################
-filename = "mcts_simResults.jld"
+filename = "mcts_simResults_n_"*string(pattern.nPhases)*".jld"
 println("Saving results to "*filename)
 #################################
 #Just save all of the data, we'll deal with concatennating later...
