@@ -1,6 +1,5 @@
 module pattern
 
-using HDF5, JLD
 using Iterators
 
 using auxFuns
