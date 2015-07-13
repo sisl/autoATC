@@ -30,14 +30,21 @@ end
 
 @everywhere __PARALLEL__ = true
 
+#################################
 println("Loading code everywhere")
-
+#################################
 require("runSims_parallel.jl")
 
+#################################
 println("running!")
+#################################
+tic()
 allResults = runAllSims()
-
-
+toc()
+#################################
+filename = "mcts_simResults.jld"
+println("Saving results to "*filename)
+#################################
 #Just save all of the data, we'll deal with concatennating later...
-JLD.save("mcts_simResults.jld", "allResults", allResults)
+JLD.save(filename, "allResults", allResults)
     
