@@ -1,9 +1,9 @@
 # parallel test code
 using HDF5, JLD 
 
-parallel = :local
+parallel = :both
 ncpu_local = 2
-machines = [("zouhair@cheonan.stanford.edu", 2, "/usr/bin"), ("zouhair@tula.stanford.edu", 2, "/usr/bin")]
+machines = [("zouhair@cheonan.stanford.edu", 2, "/usr/bin"), ("zouhair@tula.stanford.edu", 4, "/usr/bin")]
 
 
 #TODO: Figure out how to make this more robust?
