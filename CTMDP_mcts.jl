@@ -95,7 +95,16 @@ function mctsPolicy(S::SType)
     return MCTS.selectAction!(mcts, actWorkspace, S)
 end
 
-export mcts, mctsPolicy
+function testPolicy(S::SType)
+    return mcts.pars.β 
+end
+
+function loadMCTSPolicy(β::Float32)
+    mcts.pars.β = β
+    return mctsPolicy
+end
+
+export mcts, mctsPolicy, loadMCTSPolicy
 
 # const S = [:LD2, :RB1, :R, :U1]
 #  

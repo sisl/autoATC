@@ -1,6 +1,6 @@
 # parallel test code
 
-parallel = :both
+parallel = :local
 ncpu_local = CPU_CORES / 2
 machines = [("zouhair@cheonan.stanford.edu", 4, "/usr/bin"), ("zouhair@tula.stanford.edu", 20, "/usr/bin")]
 
@@ -8,14 +8,14 @@ machines = [("zouhair@cheonan.stanford.edu", 4, "/usr/bin"), ("zouhair@tula.stan
 #TODO: Figure out how to make this more robust?
 sshflags = `-i /home/zouhair/.ssh/id_rsa_cambridge`
 
-if parallel == :local_ || parallel == :both
-    println("Adding ", ncpu_local, "local CPUs")
+if parallel == :local || parallel == :both
+    println("Adding ", ncpu_local, " local CPUs")
     addprocs(int64(ncpu_local))
 end
 
 if parallel == :remote || parallel == :both
     for (machine, count, dir) in machines
-        println("Adding ", count, machine, " CPUs")
+        println("Adding ", count, " " ,machine, " CPUs")
         cluster_list = ASCIIString[]
 
         for i = 1:count
@@ -29,11 +29,11 @@ end
 
 @everywhere __PARALLEL__ = true
 
-println("Loading code everywere")
+println("Loading code everywhere")
 
-require("pworker.jl")
+require("runSims_parallel.jl")
 
 println("running!")
-runTest(32, bParallel = true)
+runAllSims()
 
 

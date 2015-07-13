@@ -2,8 +2,10 @@ module sim3d
 
 using airplaneType
 using SASS_sensor
+using pattern
 
-export simulate!
+export simulate!, randomStart
+export simResults, runBatchSims
 
 #################################################
 #Simulation parameters
@@ -104,6 +106,158 @@ function simulate!(acList::Vector{airplane}, Tend, policyTiming::Symbol, policyF
 
   return (idmin, tmax, alertCount, flightTime/length(acList), measurements)
 end
+
+#################################################
+function randomStart()
+#################################################
+    rstart_in = ()-> [airplane(46 + (rand()-0.5)*3,s) for s in pattern.allstates[rand(3:length(pattern.allstates), 4)]];
+    acList = rstart_in()
+
+    idmin = [0,0]
+    notok = (ACLIST)-> getDmin!(idmin, ACLIST)[1] <=  0
+        
+    while(notok(acList))
+        acList = rstart_in()
+    end
+    return acList
+end
+
+
+
+#################################################
+#Results from running batch sims
+type simResults
+    #Inputs
+    betaVals::Vector{Float32}
+    atcTypes::Vector{Symbol}
+    seedVal::Int64
+    runTime::Float64
+    #Outputs
+    tTotals    ::Array{Float32, 3}
+    flightTimes::Array{Float32, 3}
+    alertCounts::Array{Uint32, 3}
+    nNMACcounts::Array{Uint32, 3}
+    
+    
+    function simResults(betaVals, atcTypes, Nbatch, seedVal)
+        NbetaVals = length(betaVals)
+        NatcTypes = length(atcTypes)
+         
+        new(
+        copy(betaVals), copy(atcTypes),
+        seedVal, 0., 
+        zeros(Float32, NbetaVals,NatcTypes,Nbatch),
+        zeros(Float32, NbetaVals,NatcTypes,Nbatch),
+        zeros(Uint32 , NbetaVals,NatcTypes,Nbatch),
+        zeros(Uint32 , NbetaVals,NatcTypes,Nbatch)
+        )
+    end
+end
+
+
+
+
+
+#################################################
+function runBatchSims(betaVals::Vector{Float32}, 
+                      tBatchTime_hours::Float64, Nbatch::Int64,
+                      seedVal::Int64, loadPolicy::Function; 
+                      atcTypes::Vector{Symbol} = [:Smart], Verbosity::Symbol = :None)
+#################################################
+    # betaVals = [0.0f0, 0.001f0, 0.005f0, 0.01f0, 0.05f0]
+    # betaVals = [0.0f0, 0.001f0, 0.005f0] #, 0.001f0, 0.005f0, 0.01f0, 0.05f0]
+    # betaVals = [0.0f0]
+    
+    #atcTypes = [:Smart, :None] , :None is no ATCtype!
+    
+    
+    #Reinit seeds for repeatibility
+    #Note that although we are using the same seedValue for these RNGs,
+    #they are used in different contexts so it doesn't really matter
+    srand(pattern.rng, uint32(seedVal))
+    #srand(CTMDP_mcts.mctsRng, uint32(seedVal))
+    
+    #Total run time per batch in seconds
+    tBatchTime = 3600.*tBatchTime_hours
+    
+    
+    #Allocate the result vectors
+    results = simResults(betaVals, atcTypes, Nbatch, seedVal)
+    #These should be references just to make hte code a bit more readable
+    tTotals     = results.tTotals
+    flightTimes = results.flightTimes
+    alertCounts = results.alertCounts
+    nNMACcounts = results.nNMACcounts
+    
+    
+    startTime = time();
+    for (betaIdx, beta) in enumerate(betaVals)
+        #Use the appropriate policy
+        s0 = time()
+        policy = loadPolicy(beta)::Function
+        for (atcIdx, atcType) in enumerate(atcTypes)  
+            #We only need to run the first beta for the None case
+            #and copy it over for simplicity
+            if (atcType == :None && betaIdx > 1)
+                flightTimes[betaIdx, atcIdx, :] = flightTimes[1, atcIdx, :]
+                alertCounts[betaIdx, atcIdx, :] = alertCounts[1, atcIdx, :]
+                nNMACcounts[betaIdx, atcIdx, :] = nNMACcounts[1, atcIdx, :] 
+                tTotals[betaIdx, atcIdx, :] = tTotals[1, atcIdx, :] 
+    
+                #collisionPos[atcType][betaIdx,:,:] = collisionPos[atcType][1,:,:]
+                continue
+            end
+            nextPrintTime = time() + 60 
+            
+            #Simulate Nbatch_es
+            for i in 1:Nbatch
+                
+                #Each batch should run all the way to tBatchTime!
+                while tTotals[betaIdx, atcIdx, i] < tBatchTime
+                    if Verbosity != :None
+                        now = time()
+                        if now >= nextPrintTime
+                            nextPrintTime = now + 60
+                            println(now-startTime, "(s) at betaIdx=",betaIdx, " atcIdx=",atcIdx, " i = ", i)
+                            
+                        end 
+                    end   
+                    
+                    #First, initialize the position
+                    aircraftList = randomStart()
+                    #Simulate the policy
+                    simTime = tBatchTime-tTotals[betaIdx, atcIdx, i]
+                    (idmin, tmax, alertCount, flightTime) = simulate!(aircraftList,simTime,
+                                                                      atcType,policy,
+                                                                      stopEarly=true, savepath=false, savemeasurements=false);
+                    
+                    #we finished early, it must have been an NMAC
+                    if (tmax < simTime )
+                        nNMACcounts[betaIdx, atcIdx, i] += 1
+                    end
+                    
+                    tTotals[betaIdx, atcIdx, i]     += tmax
+                    alertCounts[betaIdx, atcIdx, i] += alertCount
+                    flightTimes[betaIdx, atcIdx, i] += flightTime
+                    
+                    #Whine if for some reason we got a collision right
+                    #after we started... randomStart() should not cause this
+                    if(tmax == 0)
+                        error("Collision right after start. This shouldn't happen!")
+                    end
+                end
+    
+            end
+      end
+    end
+    
+    results.runTime = time() - startTime
+    
+    return results
+
+end
+
+
 
 end
 
