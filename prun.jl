@@ -1,4 +1,5 @@
 # parallel test code
+using HDF5, JLD 
 
 parallel = :local
 ncpu_local = CPU_CORES / 2
@@ -34,6 +35,9 @@ println("Loading code everywhere")
 require("runSims_parallel.jl")
 
 println("running!")
-runAllSims()
+allResults = runAllSims()
 
 
+#Just save all of the data, we'll deal with concatennating later...
+JLD.save("mcts_simResults.jld", "allResults", allResults)
+    

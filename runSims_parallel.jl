@@ -2,10 +2,6 @@ using pattern
 using CTMDP_mcts
 using sim3d
 
-
-using HDF5, JLD 
-
-
 function runBatchSimsParallel(seedVal::Int64)
     
     betaVals = [0.0f0, 0.001f0, 0.005f0, 0.01f0]
@@ -25,7 +21,6 @@ function runAllSims()
     #Run everything in parallel...
     allResults = pmap(runBatchSimsParallel, seedVals)
     
-    #Just save all of the data, we'll deal with concatennating later...
-    JLD.save("mcts_simResults.jld", "allResults", allResults)
-    
+    return allResults
+
 end
