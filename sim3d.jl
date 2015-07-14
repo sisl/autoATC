@@ -257,7 +257,7 @@ function runBatchSims(betaVals::Vector{Float32},
                         if now >= nextPrintTime
                             nextPrintTime = now + 60
                             
-                            Perf = sum(flightTimes[betaIdx, atcIdx,:])/sum(nNMACcounts[betaIdx, atcIdx])
+                            Perf = round(sum(flightTimes[betaIdx, atcIdx,:])/3600/sum(nNMACcounts[betaIdx, atcIdx]),2)
                             
                             sim_so_far = round(tTotals[betaIdx, atcIdx, i]/3600, 2 )
                             total_to_end = round(Nbatch*tBatchTime/3600, 2)
