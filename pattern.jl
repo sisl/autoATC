@@ -28,7 +28,7 @@ const g_nVehicles = 4
 
 #Number of phases per state
 #TODO: Figure out why nPhases > 10 fails!
-const nPhases = 10; #must be >= 1
+const nPhases = 6; #must be >= 1
 
 
 ###########################################
