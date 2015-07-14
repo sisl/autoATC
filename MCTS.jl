@@ -25,7 +25,8 @@ type SPWParams{T<:Action}
     d::Depth                    # search depth
     ec::Float32                 # exploration constant- governs trade-off between exploration and exploitation in MCTS
     n::Int32                    # number of iterations
-    β::Float32
+    β::Float32                  # Alert/Collision ration (should be inside of problem defintion...)
+    γ::Float32                  # Discount factor
     
     Afun!::Function              # set of allowable actions 
     rolloutPolicy::Function     # returns action for rollout policy
@@ -175,7 +176,7 @@ function simulate!(spw::SPW, acts::Vector{Action}, s::State, sp::State, d::Depth
         if !spw.pars.terminate
             #Note that a call to simulate! will change s and sp, but we 
             #don't care at this point since we no longer need their values!
-            q += simulate!(spw,acts, sp,s,int16(d-1)) #Note that s is now just a temp storage variable
+            q += spw.pars.γ*simulate!(spw,acts, sp,s,int16(d-1)) #Note that s is now just a temp storage variable
         end
         #println(tabs, "(",d,")", "Exit  s=",s, " -> sp =",sp)
 
@@ -206,7 +207,7 @@ function rollout!(spw::SPW,s::State,sp::State,d::Depth)
         if !spw.pars.terminate
             spw.pars.getNextState!(sp,s,a,spw.pars.rng)
             #println(tabs, "(",d,")", "RolloutNext  s=",s, " -> sp =",sp)
-            R += rollout!(spw,sp,s,int16(d-1))::Reward
+            R += spw.pars.γ*rollout!(spw,sp,s,int16(d-1))::Reward
         end
         
         #println(tabs, "(",d,")", "RolloutExit  s=",s, " -> sp =",sp)

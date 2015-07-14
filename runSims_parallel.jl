@@ -4,9 +4,9 @@ using sim3d
 
 function runBatchSimsParallel(seedVal::Int64)
     
-    betaVals = [0.0f0, 0.001f0, 0.005f0, 0.01f0]
-    Nbatch = 2 #10?
-    tBatchHours = 20 # 20h?
+    betaVals = [0.0f0]# 0.001f0, 0.005f0, 0.01f0]
+    Nbatch = 1 #10?
+    tBatchHours = 10 # 5h
     return runBatchSims(betaVals, tBatchHours, Nbatch,
                         seedVal, loadMCTSPolicy)
 

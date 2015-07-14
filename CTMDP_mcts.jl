@@ -64,9 +64,9 @@ Afun! = pattern.validActions!
 assert (typeof(pattern.g_noaction) == MCTS.Action)
 assert (SType == MCTS.State)
 
-function genMCTSdict(d, ec, n, β, resetDict)
+function genMCTSdict(d, ec, n, β, γ, resetDict)
     terminate=false#doesnt matter, getReward will update this at each call
-    pars = MCTS.SPWParams{MCTS.Action}(terminate, resetDict, d,ec,n,β, 
+    pars = MCTS.SPWParams{MCTS.Action}(terminate, resetDict, d,ec,n,β,γ, 
                 Afun!,
                 rollOutPolicy,
                 getNextState!,
@@ -80,13 +80,15 @@ end
 ###############################
 #Default parameters
 ###############################
-d = int16(50)           
-ec = abs(RewardFun.collisionCost)
+d = int16(20*pattern.nPhases)           
+ec = abs(RewardFun.collisionCost)*5
 n = int32(1000)
 β = 0.0f0
+γ = 0.95f0 ^ (1/pattern.nPhases)
+
 resetDict = true #reset dictionary every cycle
 
-mcts = genMCTSdict(d, ec, n, β, resetDict)
+mcts = genMCTSdict(d, ec, n, β, γ, resetDict)
 
 actWorkspace = Array(extActType, pattern.g_nMaxActs)
 actWorkspace[1] = copy(pattern.g_noaction)

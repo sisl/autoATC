@@ -142,7 +142,6 @@ type simResults
     function simResults(betaVals, atcTypes, Nbatch, seedVal)
         NbetaVals = length(betaVals)
         NatcTypes = length(atcTypes)
-         
         new(
         copy(betaVals), copy(atcTypes),
         seedVal, 0., 
@@ -152,15 +151,49 @@ type simResults
         zeros(Uint32 , NbetaVals,NatcTypes,Nbatch)
         )
     end
+    
+    function simResults(NbetaVals, NatcTypes, Nbatch)
+        new(
+        zeros(Float32, NbetaVals),
+        Array(Symbol , NatcTypes),
+        0, 0., 
+        zeros(Float32, NbetaVals,NatcTypes,Nbatch),
+        zeros(Float32, NbetaVals,NatcTypes,Nbatch),
+        zeros(Uint32 , NbetaVals,NatcTypes,Nbatch),
+        zeros(Uint32 , NbetaVals,NatcTypes,Nbatch)
+        )
+    end
+
+    
+    
 end
 
 
+function concatenate(results)
+    res1 = results[1]
 
-
+    Nprocs = length(results)
+    concResults = simResults(length(res1.betaVals), length(res1.atcTypes), size(res1.flightTimes, 3)*Nprocs)
+    
+    concResults.betaVals = res1.betaVals
+    concResults.atcTypes = res1.atcTypes
+    concResults.runTime = sum([res.runTime for res in allResults])
+    
+    for field in [:flightTimes, :alertCounts, :nNMACcounts, :tTotals]
+        cnt = 1:2
+        for i in 1:Nprocs
+            assert(res1.betaVals == results[i].betaVals)
+            assert(res1.atcTypes == results[i].atcTypes)
+            concResults.(field)[:,:, cnt] = results[i].(field)[:,:,:]
+            cnt += 2
+        end
+    end
+    return concResults
+end
 
 #################################################
 function runBatchSims(betaVals::Vector{Float32}, 
-                      tBatchTime_hours::Float64, Nbatch::Int64,
+                      tBatchTime_hours::Number, Nbatch::Int64,
                       seedVal::Int64, loadPolicy::Function; 
                       atcTypes::Vector{Symbol} = [:Smart], Verbosity::Symbol = :None)
 #################################################

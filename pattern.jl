@@ -27,7 +27,7 @@ const α = 1.0; #Probability of following ATC command
 const g_nVehicles = 4
 
 #Number of phases per state
-const nPhases = 4; #must be >= 1
+const nPhases = 10; #must be >= 1
 
 
 ###########################################
