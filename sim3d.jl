@@ -203,7 +203,10 @@ function runBatchSims(betaVals::Vector{Float32},
     
     #atcTypes = [:Smart, :None] , :None is no ATCtype!
     
-    
+    if Verbosity != :None
+        println("Running with seed: ", seedVal)
+    end
+
     #Reinit seeds for repeatibility
     #Note that although we are using the same seedValue for these RNGs,
     #they are used in different contexts so it doesn't really matter
@@ -216,6 +219,8 @@ function runBatchSims(betaVals::Vector{Float32},
     
     #Allocate the result vectors
     results = simResults(betaVals, atcTypes, Nbatch, seedVal)
+    NbetaVals = length(betaVals)
+    NatcTypes = length(atcTypes)
     #These should be references just to make hte code a bit more readable
     tTotals     = results.tTotals
     flightTimes = results.flightTimes
@@ -240,7 +245,7 @@ function runBatchSims(betaVals::Vector{Float32},
                 #collisionPos[atcType][betaIdx,:,:] = collisionPos[atcType][1,:,:]
                 continue
             end
-            nextPrintTime = time() + 60 
+            nextPrintTime = time() 
             
             #Simulate Nbatch_es
             for i in 1:Nbatch
@@ -251,8 +256,18 @@ function runBatchSims(betaVals::Vector{Float32},
                         now = time()
                         if now >= nextPrintTime
                             nextPrintTime = now + 60
-                            println(now-startTime, "(s) at betaIdx=",betaIdx, " atcIdx=",atcIdx, " i = ", i)
                             
+                            Perf = sum(flightTimes[betaIdx, atcIdx,:])/sum(nNMACcounts[betaIdx, atcIdx])
+                            
+                            sim_so_far = round(tTotals[betaIdx, atcIdx, i]/3600, 2 )
+                            total_to_end = round(Nbatch*tBatchTime/3600, 2)
+                            t = round((now-startTime)/60,2)
+                            println(" t = $t (mins) ", 
+                                    " Simulated Hours = $sim_so_far  / $total_to_end",
+                                    " -> Perf = $Perf (hr_to_nmac) \t", 
+                                    " Batch = $i / $Nbatch", 
+                                    " betaIdx= $betaIdx / $NbetaVals",
+                                    " atcIdx= $atcIdx / $NatcTypes")                            
                         end 
                     end   
                     
