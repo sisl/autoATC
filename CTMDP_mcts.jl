@@ -80,7 +80,7 @@ end
 ###############################
 #Default parameters
 ###############################
-d = int16(20*pattern.nPhases)           
+d = int16(100*pattern.nPhases)           
 ec = abs(RewardFun.collisionCost)*5
 n = int32(1000)
 β = 0.0f0
