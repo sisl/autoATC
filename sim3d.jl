@@ -301,6 +301,10 @@ function runBatchSims(betaVals::Vector{Float32},
     
     results.runTime = time() - startTime
     
+    if Verbosity != :None
+        println("Finished processing (total runtime: $(round(results.runTime/60,2)) minutes)")
+    end
+    
     return results
 
 end
