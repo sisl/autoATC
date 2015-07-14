@@ -173,24 +173,23 @@ function concatenate(results)
     res1 = results[1]
 
     Nprocs = length(results)
-    concResults = simResults(length(res1.betaVals), length(res1.atcTypes), size(res1.flightTimes, 3)*Nprocs)
+    Nbatch = size(res1.flightTimes,3)
+    
+    concResults = simResults(length(res1.betaVals), length(res1.atcTypes), Nbatch*Nprocs)
     
     concResults.betaVals = res1.betaVals
     concResults.atcTypes = res1.atcTypes
     concResults.runTime = sum([res.runTime for res in allResults])
     
-    for field in [:flightTimes, :alertCounts, :nNMACcounts, :tTotals]
-        cnt = 1:2
-        for i in 1:Nprocs
-            assert(res1.betaVals == results[i].betaVals)
-            assert(res1.atcTypes == results[i].atcTypes)
-            concResults.(field)[:,:, cnt] = results[i].(field)[:,:,:]
-            cnt += 2
+    cnt = 1:Nbatch
+    for i in 1:Nprocs                    
+        for field in [:flightTimes, :alertCounts, :nNMACcounts, :tTotals]        
+            concResults.(field)[:,:, cnt] = results[i].(field)[:,:,:]            
         end
+        cnt += Nbatch
     end
     return concResults
 end
-
 #################################################
 function runBatchSims(betaVals::Vector{Float32}, 
                       tBatchTime_hours::Number, Nbatch::Int64,
@@ -266,7 +265,7 @@ function runBatchSims(betaVals::Vector{Float32},
                             t = round((now-startTime)/60,2)
                             println(" t = $t (mins) ", 
                                     " Simulated Hours = $sim_so_far  / $total_to_end",
-                                    " -> Perf = $Perf (hr_to_nmac $(round(ft,2)) | $) \t", 
+                                    " -> Perf = $Perf (hr_to_nmac $(round(ft,2)) | $nNmac) \t", 
                                     " Batch = $i / $Nbatch", 
                                     " betaIdx= $betaIdx / $NbetaVals",
                                     " atcIdx= $atcIdx / $NatcTypes")                            
