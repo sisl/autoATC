@@ -1,8 +1,8 @@
 # parallel test code
 using HDF5, JLD 
 
-parallel = :both
-ncpu_local = 4
+parallel = :local
+ncpu_local = 2
 machines = [("zouhair@cheonan.stanford.edu", 4, "/usr/bin"), ("zouhair@tula.stanford.edu", 4, "/usr/bin")]
 
 
