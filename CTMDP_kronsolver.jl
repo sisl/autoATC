@@ -383,7 +383,7 @@ function loadPolicy(α, β_cost; prefix="")
     Aopt = compActType[[data["Aopt_idx"][i] , data["Aopt_act"][i]] for i in 1:length(data["Aopt_idx"])]
 end
 
-function ctmdpPolicy(S::Stype)
+function ctmdpPolicy(S::SType)
  return policy_S2a(S, Aopt::Vector{compActType})
 end
 
