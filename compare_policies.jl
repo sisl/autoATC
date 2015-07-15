@@ -43,7 +43,8 @@ nextprint = start+dtprint
 tic()
 
 nVisited = 0
-for cidx in 1:CTMDP_kronsolver.g_nScomp #rand(1:CTMDP_kronsolver.g_nScomp, N)
+N = CTMDP_kronsolver.g_nScomp 
+for cidx in 1:N#rand(1:CTMDP_kronsolver.g_nScomp, N)
     S  = CTMDP_kronsolver.CIDX2S(cidx)
     p2 = ctmdpPolicy(S);
     nVisited += 1
@@ -63,6 +64,7 @@ for cidx in 1:CTMDP_kronsolver.g_nScomp #rand(1:CTMDP_kronsolver.g_nScomp, N)
     now = time()
     if now > nextprint
         nextprint = now + dtprint
+        println("@$nVisited / $(N):")
         printStats(gammas, cnt, nVisited)
     end
 end
