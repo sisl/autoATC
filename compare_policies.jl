@@ -15,7 +15,7 @@ gammas = Float64[0.5, 0.7, 1.0]
 cnt = Dict{Float64, Int64}()
 for g in gammas cnt[g] = 0 end
 
-dtprint = 6
+dtprint = 60
 start = time()
 nextprint = start+dtprint
 tic()
