@@ -71,8 +71,10 @@ normalTrans = { [:T,  :R, :U1, :LX1, :LD1, :LD2, :LB1, :F1, :R, :T];
                             [:U1, :RX1, :RD1, :RD2, :RB1, :F1];
                   [:F1, :GO, :U1, :U2, :LX2, :LD0, :LD1, :LD2, :LD3, :LB2, :F0, :F1];
                                  [:U2, :RX2, :RD0, :RD1, :RD2, :RD3, :RB2, :F0];
-                                        [:U2, :LDep, :LArr, :LD1];[:LArr, :LD2];[:LArr, :LD3];
-                                        [:U2, :RDep, :RArr, :RD1];[:RArr, :RD2];[:RArr, :RD3];}
+                                        [:U2, :LDep, :LArr, :LArrD1]; [:LArr, :LArrD2];[:LArr, :LArrD3];
+                                        [:LArrD1, :LD1]; [:LArrD2, :LD2]; [:LArrD3, :LD3];
+                                        [:U2, :RDep, :RArr, :RArrD1]; [:RArr, :RArrD2];[:RArr, :RArrD3];
+                                        [:RArrD1, :RD1]; [:RArrD2, :RD2]; [:RArrD3, :RD3]}
 
 allstates = [];
 for k in 1:size(normalTrans, 1)
@@ -81,7 +83,7 @@ for k in 1:size(normalTrans, 1)
   end
   allstates = unique([allstates, normalTrans[k]])
 end
-
+const g_nRawStates = length(allstates)
 #######################################################
 #Add phases
 #######################################################
@@ -117,9 +119,12 @@ function phaseNum(s::Symbol)
         end
     end
 end
+
+ 
 function phaseFree(s::Symbol)
     st = string(s)
     if st[1] == 'ϕ'
+        #TODO: FIXME!! It did bite me after all... this method can only handle up to 10 phases!
         return symbol(st[5:end]) #This is going to bite you in the future!
     else
         return s
@@ -195,6 +200,7 @@ end
 const g_nMaxActs = maxNextStates * g_nVehicles + 1
 ###########################################
 #Add transition times for each state in minutes
+#The values in here were extracted from the 
 ###########################################
 
 teaTime = (Symbol => Float64)[]
@@ -215,7 +221,12 @@ teaTime[:F1]=301.81
 teaTime[:GO]=59.50
 teaTime[:U2]=181.29
 teaTime[:LDep]=588.25
-teaTime[:LArr]=612.50
+teaTime[:LArr]=312.50
+#TODO: Actually measure these
+teaTime[:LArrD1]=300.
+teaTime[:LArrD2]=300.
+teaTime[:LArrD3]=300.
+
 
 #Grab keys before we start inserting things
 teaKeys = collect(keys(teaTime))
