@@ -169,6 +169,7 @@ type simResults
 end
 
 
+
 function concatenate(results)
     res1 = results[1]
 
@@ -189,6 +190,18 @@ function concatenate(results)
         cnt += Nbatch
     end
     return concResults
+end
+
+# using HDF5, JLD
+function concatenate(filename::String)
+    allResults = JLD.load(filename, "allResults");
+    concResults = concatenate(allResults)
+    writeFile = filename[1:(end-4)]*"concat"*".jld"
+    save(writeFile, "betaVals", concResults.betaVals,
+                    "alertCounts", concResults.alertCounts,
+                    "flightTimes", concResults.flightTimes, 
+                    "tTotals", concResults.tTotals, 
+                    "nNMACcounts", concResults.nNMACcounts);
 end
 #################################################
 function runBatchSims(betaVals::Vector{Float32}, 
