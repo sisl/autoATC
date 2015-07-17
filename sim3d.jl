@@ -107,10 +107,20 @@ function simulate!(acList::Vector{airplane}, Tend, policyTiming::Symbol, policyF
   return (idmin, tmax, alertCount, flightTime/length(acList), measurements)
 end
 
+
+
+function rstart_in()
+    #TODO: find a better way to do this
+#     states = pattern.allstates[rand(3:length(pattern.allstates), 4)
+    m = 3; M = pattern.g_nNodes;
+    idx = int64(rand(pattern.rng, 4) * (M-m) + m)
+    return [airplane(46 + (rand(pattern.rng)-0.5)*3,pattern.allstates[i]) for i in idx];
+    
+
+end
 #################################################
 function randomStart()
 #################################################
-    rstart_in = ()-> [airplane(46 + (rand()-0.5)*3,s) for s in pattern.allstates[rand(3:length(pattern.allstates), 4)]];
     acList = rstart_in()
 
     idmin = [0,0]
