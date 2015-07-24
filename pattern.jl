@@ -27,8 +27,7 @@ const α = 1.0; #Probability of following ATC command
 const g_nVehicles = 4
 
 #Number of phases per state
-#TODO: Figure out why nPhases > 10 fails!
-const nPhases = 4; #must be >= 1
+const nPhases = 11; #must be >= 1
 
 
 ###########################################
@@ -94,11 +93,14 @@ const g_nRawStates = length(allstates)
 #We also assume that the actions are given at the last phase.
 phaseFreeStates = [:R, :LDep, :LArr, :RDep, :RArr]
 *(a::Symbol, b::Symbol) = symbol(string(a, b))
+
+const int0offset =  int('a')-1
 function appendPhase(s::Symbol, k::Int64)
     if isin(s, phaseFreeStates) || k >= nPhases || k <= 0
         return s
     else
-        return symbol(string("ϕ",k,"_", s))
+        c = char(k + int0offset)
+        return symbol(string("ϕ",c,"_", s))
     end
 end
 
@@ -106,7 +108,6 @@ function phaseState(s::Symbol)
     return string(s)[1] == 'ϕ'
 end
 
-const int0offset =  int('0')
 function phaseNum(s::Symbol)
     if isin(s, phaseFreeStates)
         return 1
@@ -124,7 +125,6 @@ end
 function phaseFree(s::Symbol)
     st = string(s)
     if st[1] == 'ϕ'
-        #TODO: FIXME!! It did bite me after all... this method can only handle up to 10 phases!
         return symbol(st[5:end]) #This is going to bite you in the future!
     else
         return s
@@ -137,7 +137,7 @@ if(nPhases > 1)
     for s in allstates
         if !( s in phaseFreeStates)
             #Insert nPhases chain. Note that appendPhase(s,i+1)
-            #returns s!
+            #returns s if i+1 >= nPhases
             for i in 1:(nPhases-1)
                 NextStates[appendPhase(s,i)] = [appendPhase(s,i+1)]
             end
