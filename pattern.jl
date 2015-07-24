@@ -68,13 +68,13 @@ function addConn!(d, f, t)
 end
 
 normalTrans = { [:T,  :R, :U1, :LX1, :LD1, :LD2, :LB1, :F1, :R, :T];
-                            [:U1, :RX1, :RD1, :RD2, :RB1, :F1];
-                  [:F1, :GO, :U1, :U2, :LX2, :LD0, :LD1, :LD2, :LD3, :LB2, :F0, :F1];
-                                 [:U2, :RX2, :RD0, :RD1, :RD2, :RD3, :RB2, :F0];
-                                        [:U2, :LDep, :LArr, :LArrD1]; [:LArr, :LArrD2];[:LArr, :LArrD3];
-                                        [:LArrD1, :LD1]; [:LArrD2, :LD2]; [:LArrD3, :LD3];
-                                        [:U2, :RDep, :RArr, :RArrD1]; [:RArr, :RArrD2];[:RArr, :RArrD3];
-                                        [:RArrD1, :RD1]; [:RArrD2, :RD2]; [:RArrD3, :RD3]}
+                [:U1, :RX1, :RD1, :RD2, :RB1, :F1];
+                [:F1, :GO, :U1, :U2, :LX2, :LD0, :LD1, :LD2, :LD3, :LB2, :F0, :F1];
+                [:U2, :RX2, :RD0, :RD1, :RD2, :RD3, :RB2, :F0];
+                [:U2, :LDep, :LArr, :LArrD1]; [:LArr, :LArrD2];[:LArr, :LArrD3];
+                [:LArrD1, :LD1]; [:LArrD2, :LD2]; [:LArrD3, :LD3];
+                [:U2, :RDep, :RArr, :RArrD1]; [:RArr, :RArrD2];[:RArr, :RArrD3];
+                [:RArrD1, :RD1]; [:RArrD2, :RD2]; [:RArrD3, :RD3]}
 
 allstates = [];
 for k in 1:size(normalTrans, 1)
@@ -199,33 +199,32 @@ for x in 1:length(g_allstates)
 end
 const g_nMaxActs = maxNextStates * g_nVehicles + 1
 ###########################################
-#Add transition times for each state in minutes
+#Add transition times for each state in seconds
 #The values in here were extracted from the 
 ###########################################
 
 teaTime = (Symbol => Float64)[]
 
-teaTime[:T]=230.26
-teaTime[:R]=353.32
-teaTime[:U1]=308.84
-teaTime[:LX1]=138.13
-teaTime[:LD1]=371.45
-teaTime[:LD2]=332.55
-teaTime[:LB1]=135.06
-teaTime[:LX2]=136.00
-teaTime[:LD0]=166.75
-teaTime[:LD3]=227.07
-teaTime[:LB2]=127.36
-teaTime[:F0]=185.88
-teaTime[:F1]=301.81
-teaTime[:GO]=59.50
-teaTime[:U2]=181.29
-teaTime[:LDep]=588.25
-teaTime[:LArr]=312.50
-#TODO: Actually measure these
-teaTime[:LArrD1]=300.
-teaTime[:LArrD2]=300.
-teaTime[:LArrD3]=300.
+teaTime[:T]=58.25
+teaTime[:R]=38.23
+teaTime[:U1]=73.65
+teaTime[:LX1]=34.10
+teaTime[:LD1]=90.47
+teaTime[:LD2]=72.89
+teaTime[:LB1]=33.13
+teaTime[:F1]=59.14
+teaTime[:GO]=29.32
+teaTime[:U2]=44.09
+teaTime[:LX2]=33.07
+teaTime[:LD0]=46.36
+teaTime[:LD3]=45.22
+teaTime[:LB2]=34.38
+teaTime[:F0]=45.86
+teaTime[:LDep]=146.00
+teaTime[:LArr]=250.70
+teaTime[:LArrD1]=100.25
+teaTime[:LArrD2]=38.00
+teaTime[:LArrD3]=79.46
 
 
 #Grab keys before we start inserting things

@@ -45,8 +45,15 @@ end
 function +(p0::pos, p1::pos)
     return pos(p0.n + p1.n , p0.e + p1.e, p0.d + p1.d)
 end
-
-
+function -(p0::pos, p1::pos)
+    return pos(p0.n - p1.n , p0.e - p1.e, p0.d - p1.d)
+end
+function *(p0::pos, a::Number)
+    return pos(p0.n*a , p0.e*a, p0.d*a)
+end
+function /(p0::pos, a::Number)
+    return pos(p0.n/a , p0.e/a, p0.d/a)
+end
 import Base.copy
 function copy(p0::pos)
     return pos(p0.n, p0.e, p0.d)
