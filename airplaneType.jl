@@ -50,8 +50,11 @@ psi_L[:U2] = (3, 90);
 psi_L[:LD0] = (3, 270); psi_L[:LD3] = (3, 270);
           psi_L[:LB2] = (2, 180);
 
-psi_L[:LDep] = (10, 45);
+psi_L[:LDep] = rhotheta(7,7); #45 degrees, about ~10 
 psi_L[:LArr] = rhotheta(-3, -16) #3 south, 16 west
+psi_L[:LArrD1] = rhotheta(-2, 6) #2 south, 6 east, back to LD1
+psi_L[:LArrD2] = rhotheta(-2, 0) #2 south, 0 west, back to LD2
+psi_L[:LArrD3] = rhotheta(-2,-5) #2 south, 5 west, back to LD3
 
 
 

@@ -1,5 +1,8 @@
 # parallel test code
-using HDF5, JLD 
+using HDF5, JLD
+using Date
+
+tstart = now()
 
 parallel = :both
 
@@ -43,11 +46,14 @@ println("running using #", pattern.nPhases, " phases")
 tic()
 allResults = runAllSims()
 #################################
-filename = "mcts_simResults_n_"*string(pattern.nPhases)*".jld"
+filename = "mcts_simResults_n"*string(pattern.nPhases)*"_"*string(tstart)*"".jld"
 println("Saving results to "*filename)
 #################################
 #Just save all of the data, we'll deal with concatennating later...
-JLD.save(filename, "allResults", allResults)
+JLD.save(filename, "allResults", allResults, 
+         "d", mcts.pars.d, "n", mcts.pars.n, "ec", mcts.pars.ec,         
+         "β", mcts.pars.β, "γ", mcts.pars.γ,
+         "resetDict", mcts.pars.resetDict)
 
 println("Done !")
 toc()    
