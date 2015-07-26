@@ -7,8 +7,8 @@ tstart = now()
 parallel = :both
 
 ncpu_local = 0 #cambridge too slow?
-machines = [("zouhair@cheonan.stanford.edu", 5, "/usr/bin"),
-            ("zouhair@tula.stanford.edu", 5, "/usr/bin")]
+machines = [("zouhair@cheonan.stanford.edu", 8, "/usr/bin"),
+            ("zouhair@tula.stanford.edu", 8, "/usr/bin")]
 
 
 #TODO: Figure out how to make this more robust?
