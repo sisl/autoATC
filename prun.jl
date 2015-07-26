@@ -56,7 +56,7 @@ JLD.save(filename,  "betaVals", concResults.betaVals,
                     "alertCounts", concResults.alertCounts,
                     "flightTimes", concResults.flightTimes, 
                     "tTotals", concResults.tTotals, 
-                    "nNMACcounts", concResults.nNMACcounts
+                    "nNMACcounts", concResults.nNMACcounts,
                     "d", mcts.pars.d, "n", mcts.pars.n, "ec", mcts.pars.ec,
                     "γ", mcts.pars.γ,
                     "resetDict", mcts.pars.resetDict)
