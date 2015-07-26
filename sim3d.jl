@@ -190,7 +190,7 @@ function concatenate(results)
     
     concResults.betaVals = res1.betaVals
     concResults.atcTypes = res1.atcTypes
-    concResults.runTime = sum([res.runTime for res in allResults])
+    concResults.runTime = sum([res.runTime for res in results])
     
     cnt = 1:Nbatch
     for i in 1:Nprocs                    
@@ -202,17 +202,6 @@ function concatenate(results)
     return concResults
 end
 
-# using HDF5, JLD
-function concatenate(filename::String)
-    allResults = JLD.load(filename, "allResults");
-    concResults = concatenate(allResults)
-    writeFile = filename[1:(end-4)]*"concat"*".jld"
-    save(writeFile, "betaVals", concResults.betaVals,
-                    "alertCounts", concResults.alertCounts,
-                    "flightTimes", concResults.flightTimes, 
-                    "tTotals", concResults.tTotals, 
-                    "nNMACcounts", concResults.nNMACcounts);
-end
 #################################################
 function runBatchSims(betaVals::Vector{Float32}, 
                       tBatchTime_hours::Number, Nbatch::Int64,

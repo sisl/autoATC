@@ -45,15 +45,21 @@ println("running using #", pattern.nPhases, " phases")
 #################################
 tic()
 allResults = runAllSims()
+concResults = sim3d.concatenate(allResults)
+
 #################################
 filename = "mcts_simResults_n"*string(pattern.nPhases)*"_"*string(tstart)*".jld"
 println("Saving results to "*filename)
 #################################
 #Just save all of the data, we'll deal with concatennating later...
-JLD.save(filename, "allResults", allResults, 
-         "d", mcts.pars.d, "n", mcts.pars.n, "ec", mcts.pars.ec,         
-         "β", mcts.pars.β, "γ", mcts.pars.γ,
-         "resetDict", mcts.pars.resetDict)
+JLD.save(filename,  "betaVals", concResults.betaVals,
+                    "alertCounts", concResults.alertCounts,
+                    "flightTimes", concResults.flightTimes, 
+                    "tTotals", concResults.tTotals, 
+                    "nNMACcounts", concResults.nNMACcounts
+                    "d", mcts.pars.d, "n", mcts.pars.n, "ec", mcts.pars.ec,
+                    "γ", mcts.pars.γ,
+                    "resetDict", mcts.pars.resetDict)
 
 println("Done !")
 toc()    
