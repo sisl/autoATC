@@ -2,13 +2,15 @@ module CTMDP_kronsolver
 
 using pattern
 using RewardFun
+using auxFuns
+using kronfun
 
 using HDF5, JLD
 
 
 export loadPolicy, savePolicy
 export ctmdpPolicy
-
+export gaussSeidel!
 
 function combos_with_replacement(list, k)
     n = length(list)
@@ -119,7 +121,7 @@ function QVeval(X::XType, action::compActType, Qt_list, V::Vector{Float32},
 
   #This is a terminal state... Q(s,a) = R(s,a)
   assert(β < 0.9f0) #We make the assumption that action cost is small relative to collision cost
-  if( R <=  collisionCost)
+  if( R <=  RewardFun.collisionCost)
     return R
   end
   
@@ -137,7 +139,7 @@ function QVeval(X::XType, action::compActType, Qt_list, V::Vector{Float32},
   
   
   #get the relevant Q row
-  Qt = Qti_ABt(Qt_list[act+1], Qt_list[1], g_nVehicles-1, X_lidx, 
+  Qt = Qti_ABt!(Qt_list[act+1], Qt_list[1], g_nVehicles-1, X_lidx, 
                     Cb_res, res_u, res_u_rowval, res_u_nzval)
 
   #These are the entries of the transition which are non
@@ -368,7 +370,9 @@ end
 ##################################
 
 Aopt = Array(compActType)
-function savePolicy(Aopt, α, β_cost; prefix="")
+function savePolicy(Aopt_in, α, β_cost; prefix="")
+    global Aopt
+    Aopt = Aopt_in
     filename = "policies/" * prefix * "CTMDPpolicy_n_" * string(pattern.nPhases) * "_a_" * string(α) * "_b_" * string(β_cost) * ".jld"
     Aopt_idx = Int8[Aopt[i][1] for i in 1:length(Aopt)]
     Aopt_act = Int8[Aopt[i][2] for i in 1:length(Aopt)]
