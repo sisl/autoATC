@@ -84,7 +84,7 @@ d = int16(20*pattern.nPhases)
 ec = abs(RewardFun.collisionCost)*5
 n = int32(2000)
 β = 0.0f0
-γ = 0.75 ^ (1/pattern.nPhases)
+γ = 0.95 ^ (1/pattern.nPhases)
 
 resetDict = true #reset dictionary every cycle
 
