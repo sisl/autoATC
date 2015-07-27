@@ -1,12 +1,12 @@
-# parallel test code
 using HDF5, JLD
 using Dates
 
-tstart = now()
+tstart_string = strftime("%y_%m_%d-%H_%M_%S",time())
 
-parallel = :both
+parallel = :remote
 
 ncpu_local = 0 #cambridge too slow?
+
 machines = [("zouhair@cheonan.stanford.edu", 8, "/usr/bin"),
             ("zouhair@tula.stanford.edu", 8, "/usr/bin")]
 
@@ -33,10 +33,6 @@ if parallel == :remote || parallel == :both
 end
 
 
-@everywhere __PARALLEL__ = true
-
-@everywhere __POLICY__ = :MCTS # :KRON
-
 #################################
 println("Loading code everywhere")
 #################################
@@ -47,9 +43,11 @@ println("running using #", pattern.nPhases, " phases")
 #################################
 tic()
 concResults = runAllSims()
-
+                    
+                    
 #################################
-filename = "simResults_n"*string(pattern.nPhases)*"_"*string(tstart)*".jld"
+filename = "simResults/"*fileprefix()*"_"*tstart_string*".jld"
+
 println("Saving results to "*filename)
 #################################
 JLD.save(filename,  "betaVals", concResults.betaVals,
@@ -57,9 +55,7 @@ JLD.save(filename,  "betaVals", concResults.betaVals,
                     "flightTimes", concResults.flightTimes, 
                     "tTotals", concResults.tTotals, 
                     "nNMACcounts", concResults.nNMACcounts,
-                    "d", mcts.pars.d, "n", mcts.pars.n, "ec", mcts.pars.ec,
-                    "γ", mcts.pars.γ,
-                    "resetDict", mcts.pars.resetDict)
+                    runPars()...)
 
 println("Done !")
 toc()    

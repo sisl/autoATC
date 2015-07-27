@@ -2,6 +2,8 @@ using pattern
 using sim3d
 
 
+const __POLICY__ = :KRON # :KRON
+
 
 #Begin by silent policy
 loadPolicy = beta -> (S::SType -> pattern.g_noaction)
@@ -18,11 +20,15 @@ end
 
 function runBatchSimsParallel(seedVal::Int64)
     
-    betaVals = [0.0f0, 0.001f0]#, 0.005f0, 0.01f0]
+    betaVals = [0.0f0, 0.001f0, 0.005f0, 0.01f0, 0.05f0]
+    if __POLICY__ == :MCTS
+       betaVals = [0.0f0, 0.003f0]
+    end
+
     Nbatch = 1 #10?
-    tBatchHours = 10
+    tBatchHours = 10.
     return runBatchSims(betaVals, tBatchHours, Nbatch,
-                        seedVal, ; Verbosity=:High)
+                        seedVal, loadPolicy; Verbosity=:High)
 
 end
 
@@ -40,3 +46,25 @@ function runAllSims()
     return concResults
 
 end
+
+function runPars() 
+
+    pars = ["α", pattern.α, "nPhases", pattern.nPhases]
+    
+    if __POLICY__ == :MCTS 
+        append!(pars, ["policy","MCTS", 
+                "d", mcts.pars.d, "n", mcts.pars.n,
+                "ec", mcts.pars.ec,
+                "γ", mcts.pars.γ, "resetDict", mcts.pars.resetDict])
+    elseif __POLICY__ == :KRON
+        append!(pars, ["policy","KRON"]) 
+    end
+   return pars                 
+end
+
+function fileprefix()
+    prefix = string(__POLICY__) * "_n" * string(pattern.nPhases)
+    return prefix
+end
+
+
