@@ -11,7 +11,7 @@ if __POLICY__ == :MCTS
     using CTMDP_mcts
     loadPolicy = loadMCTSPolicy
 elseif __POLICY__ == :KRON
-    using CTMDP_kronsolver
+    using CTMDP_kron
     loadPolicy = beta -> loadCTMDPpolicy(1.0, beta)
 else
     println("Using silent policy!")

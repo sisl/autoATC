@@ -10,9 +10,6 @@ machines = [("zouhair@cheonan.stanford.edu", 8, "/usr/bin"),
             ("zouhair@tula.stanford.edu", 8, "/usr/bin")]
 
 
-#TODO: Figure out how to make this more robust?
-sshflags = `-i /home/zouhair/.ssh/id_rsa_cambridge`
-
 if parallel == :local || parallel == :both
     println("Adding ", ncpu_local, " local CPUs")
     addprocs(int64(ncpu_local))
@@ -27,7 +24,7 @@ if parallel == :remote || parallel == :both
             push!(cluster_list, machine)
         end
 
-        addprocs(cluster_list, dir = dir, sshflags=sshflags)
+        addprocs(cluster_list, dir = dir)
     end
 end
 

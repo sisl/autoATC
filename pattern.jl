@@ -7,6 +7,8 @@ using auxFuns
 export g_noaction, g_nullAct, isNullAct
 export g_allstates, g_allstates_string 
 export g_nNodes, g_nVehicles
+export g_nSlong, g_nXlong, g_nScomp, g_nXcomp
+
 
 export nPhases, phaseFree, phaseNum, phaseState, appendPhase
 export randomChoice, NextStates
@@ -27,8 +29,7 @@ const α = 1.0; #Probability of following ATC command
 const g_nVehicles = 4
 
 #Number of phases per state must be >= 1
-const nPhases = 2
-
+const nPhases = 5
 
 ###########################################
 ###########################################
@@ -157,6 +158,9 @@ const g_allstates_string = (UTF8String)[string(a) for a in g_allstates]
 
 #Number of nodes per instaces
 const g_nNodes = length(g_allstates)
+
+const g_nSlong  = g_nNodes^g_nVehicles; const g_nXlong = g_nSlong;
+const g_nScomp = binomial(g_nNodes + g_nVehicles - 1 ,g_nVehicles ); const g_nXcomp = g_nScomp;
 
 ###########################################
 #Special states
@@ -573,7 +577,14 @@ function X2LIDX(X::XType, perm::XType)
 end
 
 function S2LIDX(S::SType)
-  return X2LIDX(S2X(S))
+    index = s2x(S[perm[g_nVehicles]])
+    stride = 1
+    for k = (g_nVehicles-1):-1:1
+        stride = stride * g_nNodes
+        index += (s2x(X[perm[k]]) -1) * stride
+    end
+    return index
+#   return X2LIDX(S2X(S))
 end
 
 function LIDX2X(lidx::Int64)

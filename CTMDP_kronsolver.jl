@@ -5,113 +5,10 @@ using RewardFun
 using auxFuns
 using kronfun
 
-using HDF5, JLD
+using CTMDP_kronindexing
+using CTMDP_kron
 
-
-export loadCTMDPpolicy, saveCTMDPpolicy
-export ctmdpPolicy
 export solveCTMDP
-
-function combos_with_replacement(list, k)
-    n = length(list)
-    [[list[c[i]-i+1] for i=1:length(c)] for c in combinations([1:(n+k-1)],k)]
-end
-
-
-#TODO: Find a way to not have to allocate all of this memory?
-###########################################
-###########################################
-#Awesome functions for indexing magic :)
-###########################################
-#Convention is as follows:
-#s is the substate in the pattern of a single vehicle as a symbol
-#x is the substate in the pattern of a single vehicle as an index
-
-#S is the state as an array of symbols of all vehicles S = [s1, s2, ...]
-#X is the state as an array of Int64 of all vehicles X = [x1, x2, ...]
-
-#CIDX is the compact index of the state (where order does not matter) there are C(n+k-1, k) of them
-#LIDX is the long    index of the state (where order does matter)     there are n^k of them
-###########################################
-###########################################
-
-#Get all possible states, allowing replacement, but order does not matter:
-const g_Scomp = combos_with_replacement(g_allstates, g_nVehicles)
-const g_Xcomp = XType[S2X(s) for s in g_Scomp]
-
-const g_nScomp = length(g_Scomp); const g_nXcomp = g_nScomp;
-const g_nSlong  = g_nNodes^g_nVehicles; const g_nXlong = g_nSlong;
-
-#Going from compact indices to states
-function CIDX2S(cidx::Int64)
-  return g_Scomp[cidx]
-end
-function CIDX2X(cidx::Int64)
-  return g_Xcomp[cidx]
-end
-
-#Going from states to compact indices
-const g_X2CIDX_dict = (XType => Int64)[g_Xcomp[cidx] => cidx for cidx in 1:g_nScomp]
-function X2CIDX(X::XType)
-  return g_X2CIDX_dict[sort(X)]
-end
-function S2CIDX(S::SType)
-  return X2CIDX(S2X(S))
-end
-
-#This is when we need to go between compact and long indices
-#Note that many LIDX map to the same CIDX
-#And that one CIDX maps to many LIDX (but we only return one)
-function LIDX2CIDX(lidx::Int64)
-  #Actually, this is the one one we really
-  #care about making faster. Might need to get rid
-  #of the reverse being done?
-  X = LIDX2X(lidx);
-  return X2CIDX(X);
-end
-function CIDX2LIDX(cidx::Int64)
-  return X2LIDX(g_Xcomp[cidx])
-end
-
-
-#Until we can trust this like crazy, doing some
-#random unit tests
-
-using Base.Test
-
-
-function unitTest(idx, isCompact)
-  cidx = 0; lidx = 0
-  if(isCompact)
-    cidx = idx; lidx = CIDX2LIDX(idx)
-  else
-    lidx = idx; cidx = LIDX2CIDX(idx)
-  end
-  Xc = CIDX2X(cidx); Sc = CIDX2S(cidx)
-  Xl = LIDX2X(lidx); Sl = LIDX2S(lidx)
-  if (!isCompact)
-    #In this case, we can't guarantee
-    #That the lidx
-    Xl = sort(Xl);
-    Sl = X2S(Xl)
-  end
-  @test Xc == Xl == sort(Xl) == sort(Xc)
-  @test Xc == S2X(Sl) == S2X(Sc)
-  @test Sc == Sl == X2S(Xc) == X2S(Xl)
-end
-for cidx in rand(1:g_nXcomp, 100)
-  unitTest(cidx, true)
-end
-for lidx in rand(1:g_nXlong, 100)
-  unitTest(lidx, false)
-end
-
-###########################################
-###########################################
-###########################################
-###########################################
-
-
 
 function QVeval(X::XType, action::compActType, Qt_list, V::Vector{Float32},
                 ζ::Float32, β::Float32, V_is_compact::Bool, 
@@ -339,61 +236,6 @@ end
 
 
 
-function policy_X2a_compact(X::XType, Aopt::Vector{compActType})
-  Xperm = sortperm(X)
-  X_cidx = X2CIDX(X)
-
-  compactAct = Aopt[X_cidx]
-
-  act = pattern.g_nullAct
-  if compactAct != pattern.g_nullAct
-    pidx = [1:length(X)][Xperm[compactAct[1]]]
-    act = [int8(pidx), compactAct[2]]
-  end
-
-  #This is still in compact form
-  return act
-
-end
-
-
-function policy_X2a(X::XType, Aopt::Vector{compActType})
-  #Get the compact form representation
-  act = policy_X2a_compact(X, Aopt)
-  #Trasnform it to the extended form
-  return pattern.compAct2extAct(act,X2S(X))
-end
-
-function policy_S2a(S::SType, Aopt::Vector{compActType})
-  return policy_X2a(S2X(S),Aopt)
-end
-##################################
-
-Aopt = Array(compActType)
-
-function ctmdpPolicy(S::SType)
- return policy_S2a(S, Aopt::Vector{compActType})
-end
-
-function saveCTMDPpolicy(Aopt_in, α, β_cost; prefix="")
-    global Aopt
-    Aopt = Aopt_in
-    filename = "policies/" * prefix * "CTMDPpolicy_n_" * string(pattern.nPhases) * "_a_" * string(α) * "_b_" * string(β_cost) * ".jld"
-    Aopt_idx = Int8[Aopt[i][1] for i in 1:length(Aopt)]
-    Aopt_act = Int8[Aopt[i][2] for i in 1:length(Aopt)]
-    JLD.save(filename, "Aopt_idx", Aopt_idx, "Aopt_act", Aopt_act); #"Vstar", Vshort,
-    println(filename)
-end
-
-function loadCTMDPpolicy(α, β_cost; prefix="")
-    filename = "policies/" * prefix * "CTMDPpolicy_n_" * string(pattern.nPhases) * "_a_" * string(α) * "_b_" * string(β_cost) * ".jld"
-    data = JLD.load(filename)
-    global Aopt
-    Aopt = compActType[[data["Aopt_idx"][i] , data["Aopt_act"][i]] for i in 1:length(data["Aopt_idx"])]
-    return ctmdpPolicy
-end
-
-
 ##################################
 #Use policy from the 1 phase case 
 function liftUpPolicy!(Qt_list, V::Vector{Float32}, ζ::Float32, β::Float32,  Aopt1::Vector{compActType}; maxIters::Int64=100, maxTime::Float64 = Inf)
@@ -526,7 +368,7 @@ function solveCTMDP(β_costs=[0.0f0, 0.001f0, 0.005f0, 0.01f0, 0.05f0], ζ_disco
     
     Isp = speye(Float32, g_nNodes);
     Qt_list = (typeof(M0))[(M0*(P[a+1] - Isp))' for a in A];
-    Vlong = zeros(Float32,CTMDP_kronsolver.g_nSlong);
+    Vlong = zeros(Float32,g_nSlong);
 
     for β_cost in β_costs 
         println("Solving for ", β_cost)
