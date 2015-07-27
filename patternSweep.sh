@@ -22,5 +22,6 @@ for n in `seq $n0 $nend`
 do
   sed -i "s/const nPhases =/const nPhases = $n #/g" pattern.jl
   echo Running $script with nPhases = $n
+  sleep 1 #precaution to let NFS sync...
   julia $script
 done
