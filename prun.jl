@@ -6,7 +6,6 @@ tstart_string = strftime("%y_%m_%d-%H_%M_%S",time())
 parallel = :remote
 
 ncpu_local = 0 #cambridge too slow?
-
 machines = [("zouhair@cheonan.stanford.edu", 8, "/usr/bin"),
             ("zouhair@tula.stanford.edu", 8, "/usr/bin")]
 
@@ -32,6 +31,8 @@ if parallel == :remote || parallel == :both
     end
 end
 
+#################################
+@everywhere cd("$(homedir())/autoATC")
 
 #################################
 println("Loading code everywhere")
