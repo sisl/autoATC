@@ -8,7 +8,7 @@ using kronfun
 using HDF5, JLD
 
 
-export loadPolicy, savePolicy
+export loadCTMDPpolicy, saveCTMDPpolicy
 export ctmdpPolicy
 export solveCTMDP
 
@@ -370,7 +370,12 @@ end
 ##################################
 
 Aopt = Array(compActType)
-function savePolicy(Aopt_in, α, β_cost; prefix="")
+
+function ctmdpPolicy(S::SType)
+ return policy_S2a(S, Aopt::Vector{compActType})
+end
+
+function saveCTMDPpolicy(Aopt_in, α, β_cost; prefix="")
     global Aopt
     Aopt = Aopt_in
     filename = "policies/" * prefix * "CTMDPpolicy_n_" * string(pattern.nPhases) * "_a_" * string(α) * "_b_" * string(β_cost) * ".jld"
@@ -380,16 +385,14 @@ function savePolicy(Aopt_in, α, β_cost; prefix="")
     println(filename)
 end
 
-function loadPolicy(α, β_cost; prefix="")
+function loadCTMDPpolicy(α, β_cost; prefix="")
     filename = "policies/" * prefix * "CTMDPpolicy_n_" * string(pattern.nPhases) * "_a_" * string(α) * "_b_" * string(β_cost) * ".jld"
     data = JLD.load(filename)
     global Aopt
     Aopt = compActType[[data["Aopt_idx"][i] , data["Aopt_act"][i]] for i in 1:length(data["Aopt_idx"])]
+    return ctmdpPolicy
 end
 
-function ctmdpPolicy(S::SType)
- return policy_S2a(S, Aopt::Vector{compActType})
-end
 
 ##################################
 #Use policy from the 1 phase case 
@@ -528,7 +531,7 @@ function solveCTMDP(β_costs=[0.0f0, 0.001f0, 0.005f0, 0.01f0, 0.05f0], ζ_disco
     for β_cost in β_costs 
         println("Solving for ", β_cost)
         Aopt = gaussSeidel!(Qt_list, Vlong, ζ_discount, β_cost); #maxIters = 1, maxTime = 5.*30.);
-        savePolicy(Aopt, pattern.α, β_cost)
+        saveCTMDPpolicy(Aopt, pattern.α, β_cost)
     end
 
 end

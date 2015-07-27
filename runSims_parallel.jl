@@ -1,6 +1,20 @@
 using pattern
-using CTMDP_mcts
 using sim3d
+
+
+
+#Begin by silent policy
+loadPolicy = beta -> (S::SType -> pattern.g_noaction)
+if __POLICY__ == :MCTS
+    using CTMDP_mcts
+    loadPolicy = loadMCTSPolicy
+elseif __POLICY__ == :KRON
+    using CTMDP_kronsolver
+    loadPolicy = beta -> loadCTMDPpolicy(1.0, beta)
+else
+    println("Using silent policy!")
+end
+
 
 function runBatchSimsParallel(seedVal::Int64)
     
@@ -8,7 +22,7 @@ function runBatchSimsParallel(seedVal::Int64)
     Nbatch = 1 #10?
     tBatchHours = 10
     return runBatchSims(betaVals, tBatchHours, Nbatch,
-                        seedVal, loadMCTSPolicy; Verbosity=:High)
+                        seedVal, ; Verbosity=:High)
 
 end
 
@@ -21,6 +35,8 @@ function runAllSims()
     #Run everything in parallel...
     allResults = pmap(runBatchSimsParallel, seedVals)
     
-    return allResults
+    concResults = sim3d.concatenate(allResults)
+
+    return concResults
 
 end

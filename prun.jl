@@ -35,6 +35,8 @@ end
 
 @everywhere __PARALLEL__ = true
 
+@everywhere __POLICY__ = :MCTS # :KRON
+
 #################################
 println("Loading code everywhere")
 #################################
@@ -44,14 +46,12 @@ require("runSims_parallel.jl")
 println("running using #", pattern.nPhases, " phases")
 #################################
 tic()
-allResults = runAllSims()
-concResults = sim3d.concatenate(allResults)
+concResults = runAllSims()
 
 #################################
-filename = "mcts_simResults_n"*string(pattern.nPhases)*"_"*string(tstart)*".jld"
+filename = "simResults_n"*string(pattern.nPhases)*"_"*string(tstart)*".jld"
 println("Saving results to "*filename)
 #################################
-#Just save all of the data, we'll deal with concatennating later...
 JLD.save(filename,  "betaVals", concResults.betaVals,
                     "alertCounts", concResults.alertCounts,
                     "flightTimes", concResults.flightTimes, 
