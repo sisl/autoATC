@@ -10,7 +10,7 @@ using HDF5, JLD
 
 export loadPolicy, savePolicy
 export ctmdpPolicy
-export gaussSeidel!
+export solveCTMDP
 
 function combos_with_replacement(list, k)
     n = length(list)
@@ -490,5 +490,49 @@ function sample(Q, dt)
     Isp = spdiagm(ones(size(Q,1)))
     M = Isp + Q * dt
 end
+
+
+####################
+#Putting it all together...
+#[0.0f0, 0.001f0, 0.005f0, 0.01f0, 0.05f0]
+function solveCTMDP(β_costs=[0.0f0, 0.001f0, 0.005f0, 0.01f0, 0.05f0], ζ_discount=0.5f0)
+
+    amax = maximum([length(pattern.NextStates[s]) for s in keys(pattern.NextStates)]);
+    A = (Int8)[0:amax];
+    P0 = spzeros(Float32, pattern.g_nNodes, pattern.g_nNodes);
+    P = (typeof(P0))[copy(P0) for a in A]
+    for a in A
+        if a == 0
+            act = pattern.g_nullAct
+        else
+            act = Int8[1, a]
+        end
+        for x in 1:pattern.g_nNodes
+            s = x2s(x)
+            for sp in pattern.NextStates[s]
+                xp = s2x(sp)
+                P[a+1][x,xp] = pattern.Transition([s], act, [sp])
+            end
+        end
+    end
+    M0 = speye(Float32, g_nNodes)
+    for x in 1:g_nNodes
+        s = x2s(x)
+        M0[x,x] = 1./(pattern.teaTime[s]/60)
+    end
+    
+    Isp = speye(Float32, g_nNodes);
+    Qt_list = (typeof(M0))[(M0*(P[a+1] - Isp))' for a in A];
+    Vlong = zeros(Float32,CTMDP_kronsolver.g_nSlong);
+
+    for β_cost in β_costs 
+        println("Solving for ", β_cost)
+        Aopt = gaussSeidel!(Qt_list, Vlong, ζ_discount, β_cost); #maxIters = 1, maxTime = 5.*30.);
+        savePolicy(Aopt, pattern.α, β_cost)
+    end
+
+end
+
+
 
 end
