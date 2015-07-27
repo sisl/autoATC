@@ -33,7 +33,7 @@ for i in 1:g_nScomp
 end
 
 function ctmdpPolicy(S::SType)
-    X = S2X(X)
+    X = S2X(S)
     #Get the compact form representation, accounting for permutation
     act = policy_X2a_compact(X, Aopt::Vector{compActType})
     #Trasnform it to the extended form
@@ -53,8 +53,8 @@ function saveCTMDPpolicy(Aopt, α, β_cost; prefix="")
     println(filename)
 end
 
-function loadCTMDPpolicy2(α, β_cost; prefix="")
-    filename = "policies/" * prefix * "CTMDPpolicy_n_" * string(5) * "_a_" * string(α) * "_b_" * string(β_cost) * ".jld"
+function loadCTMDPpolicy(α, β_cost; prefix="")
+    filename = "policies/" * prefix * "CTMDPpolicy_n_" * string(pattern.nPhases) * "_a_" * string(α) * "_b_" * string(β_cost) * ".jld"
     data = JLD.load(filename)
     global Aopt
 
@@ -66,7 +66,6 @@ function loadCTMDPpolicy2(α, β_cost; prefix="")
         Aopt[i][1] = Aopt_idx[i]
         Aopt[i][2] = Aopt_act[i]
     end 
-    return Aopt
     return ctmdpPolicy
 end
 
