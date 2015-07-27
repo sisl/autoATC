@@ -1,6 +1,6 @@
 module kronfun
 
-export Qti_ABt
+export Qti_ABt!
 
 
 ###############################
@@ -197,7 +197,7 @@ end
 #This is the function that puts it all together!
 #res_u should be passed in to avoid 
 #having to allocate/free them over and over again! 
-function Qti_ABt(At,Bt,K,i, Cb_res, res_u, res_u_rowval, res_u_nzval)
+function Qti_ABt!(At,Bt,K,i, Cb_res, res_u, res_u_rowval, res_u_nzval)
     n = size(At,1)
     assert(n == size(At,2)) #enforce squareness
     assert(size(At) == size(Bt)) #only working with same size matrices
