@@ -89,10 +89,10 @@ function gaussSeidel!(Qt_list, V::Vector{Float32}, ζ::Float32, β::Float32; max
   start = time()
   @time for iter in 1:maxIters
     maxVchange = 0.0f0
-    X_cidx = 0
-    nActsChanged = 0;  
-    for X in g_Xcomp
-        X_cidx += 1 #X_cidx = X2CIDX(X)
+    nActsChanged = 0;
+    X = zeros(xType, g_nVehicles)
+    for X_cidx in 1:g_nXcomp
+        CIDX2X!(X, X_cidx)
         aopt = pattern.g_nullAct
         Qmax = float32(-Inf)
         #Populate compact actions for this Xtate
@@ -173,9 +173,10 @@ function greedyRandomRollout!(Qt_list, V::Vector{Float32}, ζ::Float32, β::Floa
       maxVchange = 0.0f0
       X_cidx = 0
       nActsChanged = 0;  
-      for X in g_Xcomp
-          X_cidx += 1 #X_cidx = X2CIDX(X)
-          
+      X = zeros(xType, g_nVehicles)
+      for X_cidx in 1:g_nXcomp
+          CIDX2X!(X, X_cidx)
+              
           #Use the silent policy
           aopt = compActs[1]
           Va = QVeval(X, aopt, Qt_list, V, ζ, β, 

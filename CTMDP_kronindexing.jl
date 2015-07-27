@@ -3,7 +3,7 @@ module CTMDP_kronindexing
 using pattern
 using auxFuns
 
-export CIDX2S, CIDX2X, X2CIDX, S2CIDX
+export CIDX2S, CIDX2X, CIDX2X!, X2CIDX, S2CIDX
 export LIDX2CIDX, CIDX2LIDX
 
 ###########################################
@@ -92,12 +92,12 @@ function CIDX2S(cidx::Int64)
   return X2S(CIDX2X(cidx))
 end
 function CIDX2X(cidx::Int64)
-  combo = zeros(xType, g_nVehicles)
-  return CIDX2X!(combo, cidx)
+  X = zeros(xType, g_nVehicles)
+  return CIDX2X!(X, cidx)
 end
-function CIDX2X!(combo::XType, cidx::Int64)
-  id2combo!(combo, cidx, g_nNodes , g_nVehicles)
-  return combo
+function CIDX2X!(X::XType, cidx::Int64)
+  id2combo!(X, cidx, g_nNodes , g_nVehicles)
+  return X
 end
 
 #Going from states to compact indices
