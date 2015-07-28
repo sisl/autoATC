@@ -21,12 +21,15 @@ end
 function runBatchSimsParallel(seedVal::Int64)
     
     betaVals = [0.0f0, 0.001f0, 0.005f0, 0.01f0, 0.05f0]
+    Nbatch = 10 #10?
+    tBatchHours = 20.
+
     if __POLICY__ == :MCTS
        betaVals = [0.0f0, 0.003f0]
+       Nbatch = 1 #10?
+       tBatchHours = 20.
     end
 
-    Nbatch = 1 #10?
-    tBatchHours = 10.
     return runBatchSims(betaVals, tBatchHours, Nbatch,
                         seedVal, loadPolicy; Verbosity=:High)
 
