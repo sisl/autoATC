@@ -4,6 +4,8 @@ using pattern
 using RewardFun
 using MCTS
 
+using CTMDP_kronindexing
+
 mctsRng = MersenneTwister(myid())
 
 function rollOutPolicy(s::SType, rngState::AbstractRNG)
@@ -71,7 +73,7 @@ function genMCTSdict(d, ec, n, β, γ, resetDict)
                 rollOutPolicy,
                 getNextState!,
                 getReward,
-                S2LIDX,
+                S2CIDX,
                 mctsRng)
     mcts = MCTS.SPW{MCTS.Action}(pars)
     return mcts
