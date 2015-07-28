@@ -577,11 +577,11 @@ function X2LIDX(X::XType, perm::XType)
 end
 
 function S2LIDX(S::SType)
-    index = s2x(S[perm[g_nVehicles]])
+    index = s2x(S[g_nVehicles])
     stride = 1
     for k = (g_nVehicles-1):-1:1
         stride = stride * g_nNodes
-        index += (s2x(X[perm[k]]) -1) * stride
+        index += (s2x(S[k]) -1) * stride
     end
     return index
 #   return X2LIDX(S2X(S))
