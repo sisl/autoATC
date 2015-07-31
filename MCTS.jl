@@ -74,12 +74,14 @@ function selectAction!(spw::SPW, acts::Vector{Action}, s0::State)
 
     #Reset the dictionary if told to
     if(spw.pars.resetDict)
-        #TODO: compare the performance to using empty!(spw.stats) ?
+        #the performance of empty!(spw.stats)
+        #is about ~50% better than letting the dictionary grow!
+        empty!(spw.stats)
         #spw.stats = Dict{StateKey,StateStat}()
-        for v in values(spw.stats)
-            fill!(v.n, 0.0f0)
-            fill!(v.q, 0.0f0)
-        end
+#         for v in values(spw.stats)
+#             fill!(v.n, 0.0f0)
+#             fill!(v.q, 0.0f0)
+#         end
     end    
     
     #This is to avoid the first call to simulate wasting a rollout
