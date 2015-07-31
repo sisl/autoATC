@@ -30,7 +30,7 @@ end
 
 #################################
 @everywhere workingdir = "$(homedir())/autoATC"
-@everywhere isdirpath(workingdir) ? cd(workingdir) : println(workingdir * " is not a valid path")
+@everywhere isdir(workingdir) ? cd(workingdir) : println(workingdir * " is not a valid path")
 
 #################################
 println("Loading code everywhere")
