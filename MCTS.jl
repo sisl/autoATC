@@ -74,6 +74,7 @@ function selectAction!(spw::SPW, acts::Vector{Action}, s0::State)
 
     #Reset the dictionary if told to
     if(spw.pars.resetDict)
+        #TODO: compare the performance to using empty!(spw.stats) ?
         #spw.stats = Dict{StateKey,StateStat}()
         for v in values(spw.stats)
             fill!(v.n, 0.0f0)

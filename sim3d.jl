@@ -3,6 +3,7 @@ module sim3d
 using airplaneType
 using SASS_sensor
 using pattern
+using posType
 
 export simulate!, randomStart
 export simResults, runBatchSims
@@ -72,12 +73,17 @@ function simulate!(acList::Vector{airplane}, Tend, policyTiming::Symbol, policyF
     if(readyForCommand)
       act = runAutoATC(acList, policyFun)
       #If we have an action to issue, pass it along
-      if act != pattern.g_noaction && acList[act[1]].atcCommand == :∅
+      if act != pattern.g_noaction && acList[act[1]].readyForATC
         acList[act[1]].atcCommand = act[2]
         alertCount += 1
       end
-       #println(t, "Ready for command:", [(pattern.appendPhase(ac.navDest[1],ac.navPhase) , ac.readyForATC) for ac in acList], act)
     end
+    
+#     if (t > 4640. && readyForCommand)
+#         S = [(pattern.appendPhase(ac.navDest[1],ac.navPhase) , ac.readyForATC) for ac in acList]
+#         println(t, "", S, "=> \t\t", act)
+#         airplaneType.simPars.debugFlag = true
+#     end
 
     #Fly pattern logic for all aircraft
     for idx in 1:length(acList)
@@ -120,6 +126,7 @@ function rstart_in()
 end
 #################################################
 function randomStart()
+#TODO: Make this start not at just the nodes!
 #################################################
     acList = rstart_in()
 
@@ -148,6 +155,8 @@ type simResults
     alertCounts::Array{Uint32, 3}
     nNMACcounts::Array{Uint32, 3}
     
+    collisionPos::Array{Vector{pos}, 3}
+    seedValues::Array{Vector{Uint32}, 3}
     
     function simResults(betaVals, atcTypes, Nbatch, seedVal)
         NbetaVals = length(betaVals)
@@ -158,20 +167,16 @@ type simResults
         zeros(Float32, NbetaVals,NatcTypes,Nbatch),
         zeros(Float32, NbetaVals,NatcTypes,Nbatch),
         zeros(Uint32 , NbetaVals,NatcTypes,Nbatch),
-        zeros(Uint32 , NbetaVals,NatcTypes,Nbatch)
+        zeros(Uint32 , NbetaVals,NatcTypes,Nbatch),
+        Array(Vector{pos},NbetaVals, NatcTypes, Nbatch),
+        Array(Vector{Uint32}, NbetaVals, NatcTypes, Nbatch)
         )
     end
     
     function simResults(NbetaVals, NatcTypes, Nbatch)
-        new(
-        zeros(Float32, NbetaVals),
-        Array(Symbol , NatcTypes),
-        0, 0., 
-        zeros(Float32, NbetaVals,NatcTypes,Nbatch),
-        zeros(Float32, NbetaVals,NatcTypes,Nbatch),
-        zeros(Uint32 , NbetaVals,NatcTypes,Nbatch),
-        zeros(Uint32 , NbetaVals,NatcTypes,Nbatch)
-        )
+        betaVals = zeros(Float32, NbetaVals)
+        atcTypes = fill(:0, NatcTypes)
+        return simResults(betaVals, atcTypes, Nbatch, 0)
     end
 
     
@@ -205,8 +210,12 @@ end
 #################################################
 function runBatchSims(betaVals::Vector{Float32}, 
                       tBatchTime_hours::Number, Nbatch::Int64,
-                      seedVal::Int64, loadPolicy::Function; 
-                      atcTypes::Vector{Symbol} = [:Smart], Verbosity::Symbol = :None)
+                      seedStart, loadPolicy::Function; 
+                      atcTypes::Vector{Symbol} = [:Smart], 
+                      Verbosity::Symbol = :None,
+                      saveCollPos = false,
+                      saveSeeds = false,
+                      seedStride = 1000)
 #################################################
     # betaVals = [0.0f0, 0.001f0, 0.005f0, 0.01f0, 0.05f0]
     # betaVals = [0.0f0, 0.001f0, 0.005f0] #, 0.001f0, 0.005f0, 0.01f0, 0.05f0]
@@ -214,33 +223,37 @@ function runBatchSims(betaVals::Vector{Float32},
     
     #atcTypes = [:Smart, :None] , :None is no ATCtype!
     
+    seedVal0 = uint32(seedStart * seedStride);
+    seedWarning =  uint32(seedVal0 + seedStride);
+    
     if Verbosity != :None
-        println("Running with seed: ", seedVal)
+        println("Running with seed: ", seedVal0)
     end
 
-    #Reinit seeds for repeatibility
-    #Note that although we are using the same seedValue for these RNGs,
-    #they are used in different contexts so it doesn't really matter
-    srand(pattern.rng, uint32(seedVal))
-    #srand(CTMDP_mcts.mctsRng, uint32(seedVal))
-    
     #Total run time per batch in seconds
     tBatchTime = 3600.*tBatchTime_hours
     
     
     #Allocate the result vectors
-    results = simResults(betaVals, atcTypes, Nbatch, seedVal)
+    results = simResults(betaVals, atcTypes, Nbatch, seedVal0)
     NbetaVals = length(betaVals)
     NatcTypes = length(atcTypes)
     #These should be references just to make hte code a bit more readable
-    tTotals     = results.tTotals
-    flightTimes = results.flightTimes
-    alertCounts = results.alertCounts
-    nNMACcounts = results.nNMACcounts
+    tTotals      = results.tTotals
+    flightTimes  = results.flightTimes
+    alertCounts  = results.alertCounts
+    nNMACcounts  = results.nNMACcounts
+    collisionPos = results.collisionPos
+    seedValues   = results.seedValues
     
     
     startTime = time();
     for (betaIdx, beta) in enumerate(betaVals)
+        
+        #TODO: Consider moving this to inside of the for(atc) loop?
+        seedVal = seedVal0; 
+        
+        
         #Use the appropriate policy
         s0 = time()
         policy = loadPolicy(beta)::Function
@@ -252,8 +265,7 @@ function runBatchSims(betaVals::Vector{Float32},
                 alertCounts[betaIdx, atcIdx, :] = alertCounts[1, atcIdx, :]
                 nNMACcounts[betaIdx, atcIdx, :] = nNMACcounts[1, atcIdx, :] 
                 tTotals[betaIdx, atcIdx, :] = tTotals[1, atcIdx, :] 
-    
-                #collisionPos[atcType][betaIdx,:,:] = collisionPos[atcType][1,:,:]
+                collisionPos[betaIdx,atcIdx, :] = collisionPos[1,atcIdx, :]
                 continue
             end
             nextPrintTime = time() 
@@ -284,13 +296,31 @@ function runBatchSims(betaVals::Vector{Float32},
                         end 
                     end   
                     
+                    
+                    #Reinit seeds for repeatibility
+                    if(seedVal == seedWarning)
+                        println("seed value has wrapped around the seed stride")
+                    end
+                    
+                    srand(pattern.rng, seedVal)                    
+                    if saveSeeds
+                        if !isdefined(seedValues,betaIdx,atcIdx, i)
+                            seedValues[betaIdx,atcIdx, i] = [seedVal]
+                        else
+                            push!(seedValues[betaIdx,atcIdx, i], seedVal)
+                        end
+                    end
+                    seedVal += 1
+
+    
                     #First, initialize the position
                     aircraftList = randomStart()
                     #Simulate the policy
                     simTime = tBatchTime-tTotals[betaIdx, atcIdx, i]
                     (idmin, tmax, alertCount, flightTime) = simulate!(aircraftList,simTime,
                                                                       atcType,policy,
-                                                                      stopEarly=true, savepath=false, savemeasurements=false);
+                                                                      stopEarly=true, savepath=false, 
+                                                                      savemeasurements=false);
                     
                     #we finished early, it must have been an NMAC
                     if (tmax < simTime )
@@ -300,6 +330,16 @@ function runBatchSims(betaVals::Vector{Float32},
                     tTotals[betaIdx, atcIdx, i]     += tmax
                     alertCounts[betaIdx, atcIdx, i] += alertCount
                     flightTimes[betaIdx, atcIdx, i] += flightTime
+                    
+                    #Keep track of collision loacations
+                    if saveCollPos && !(0 in idmin)
+                        collPos = copy(aircraftList[idmin[1]].posNED)
+                        if !isdefined(collisionPos,betaIdx,atcIdx, i)
+                            collisionPos[betaIdx,atcIdx, i] = [collPos]
+                        else
+                            push!(collisionPos[betaIdx,atcIdx, i], collPos)
+                        end
+                    end
                     
                     #Whine if for some reason we got a collision right
                     #after we started... randomStart() should not cause this

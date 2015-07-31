@@ -11,19 +11,18 @@ type simParsType
     maxNoise::Float64 #FIXME: Make this configurable per airplane? ~500 ft
     maxNoiseAlt::Float64 #FIXME: Make this configurable per airplane? ~60 ft
     taxiSpeed::Float64 #default taxi speed
-    
+    debugFlag::Bool
     function simParsType()
         new(50., #transThresh
            200., #maxNoise ~500ft
            20.,  #maxNoise altitude ~60ft
            5., #taxi speed
+           false, #no debugging by default!
            )
     end
 end
 const simPars=simParsType()
 
-
-const DebugOn = false
 #################################################
 #Parametrize things with a bearing and a length,
 #then we will populate the positions as a tree
@@ -134,14 +133,18 @@ type airplane
   #Command if we've received any?
   atcCommand::Symbol
 
-  #this just keeps track of the history!
-  path::Vector{pos}
-  sLocHist::Vector{Symbol}
-  destHist::Vector{pos}
-  noiseHist::Vector{pos}
   #Leg distance
   legDist::Float64
   navPhase::Int64
+  
+  #this just keeps track of the history!
+  path::Vector{pos}
+  sLocHist::Vector{Symbol}
+  cmdHist::Vector{Symbol}
+  #debug stuff
+  destHist::Vector{pos}
+  noiseHist::Vector{pos}
+
 
 
   #Constructors
@@ -163,8 +166,11 @@ type airplane
         airspeed, pos(0,0,0),
         navDest, destNED,
         :∅,
-        [copy(p0)], [s], [copy(p1)], [pos()],
-        legDist, 1)
+        #Leg stuff
+        legDist, 1,
+        #History stuff
+        [copy(p0)], [s], [:∅],
+        [copy(p1)], [pos()])
 
   end
   airplane(airspeed, s) = airplane(airspeed, s, 0.)
@@ -199,7 +205,8 @@ function move!(ac::airplane, dt::Float64, savepath::Bool = true)
 
   if(savepath)
     push!(ac.path,copy(ac.posNED))
-    push!(ac.sLocHist, ac.navDest[1])
+    push!(ac.sLocHist, pattern.appendPhase(ac.navDest[1],ac.navPhase))
+    push!(ac.cmdHist, ac.atcCommand)
   end
 
 end
@@ -271,6 +278,9 @@ function transition!(ac::airplane)
   #Where were we heading
   s = ac.navDest[1]
 
+  if(simPars.debugFlag)
+    println("dest = ", ac.navDest, "phase = ", ac.navPhase, "action = ", ac.atcCommand)
+  end
   #If it's towards the start of a leg
   #We will transition to the End point
   if(ac.navDest[2] == "S")
@@ -346,7 +356,7 @@ function transition!(ac::airplane)
     return;
   end
   
-  if(DebugOn)
+  if(simPars.debugFlag)
     push!(ac.destHist, copy(ac.destNED))
     push!(ac.noiseHist, copy(ac.navNoise))
   end
