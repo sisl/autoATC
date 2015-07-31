@@ -301,7 +301,7 @@ function runBatchSims(betaVals::Vector{Float32},
                         println("seed value has wrapped around the seed stride")
                     end
                     
-                    srand(pattern.rng, seedVal)                    
+                    srand(pattern.rng, uint32(seedVal))                    
                     if saveSeeds
                         if !isdefined(seedValues,betaIdx,atcIdx, i)
                             seedValues[betaIdx,atcIdx, i] = [seedVal]
