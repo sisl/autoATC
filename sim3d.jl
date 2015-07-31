@@ -147,7 +147,6 @@ type simResults
     #Inputs
     betaVals::Vector{Float32}
     atcTypes::Vector{Symbol}
-    seedVal::Int64
     runTime::Float64
     #Outputs
     tTotals    ::Array{Float32, 3}
@@ -158,12 +157,12 @@ type simResults
     collisionPos::Array{Vector{pos}, 3}
     seedValues::Array{Vector{Uint32}, 3}
     
-    function simResults(betaVals, atcTypes, Nbatch, seedVal)
+    function simResults(betaVals::Vector{Float32}, atcTypes::Vector{Symbol}, Nbatch)
         NbetaVals = length(betaVals)
         NatcTypes = length(atcTypes)
         new(
         copy(betaVals), copy(atcTypes),
-        seedVal, 0., 
+        0., 
         zeros(Float32, NbetaVals,NatcTypes,Nbatch),
         zeros(Float32, NbetaVals,NatcTypes,Nbatch),
         zeros(Uint32 , NbetaVals,NatcTypes,Nbatch),
@@ -173,10 +172,10 @@ type simResults
         )
     end
     
-    function simResults(NbetaVals, NatcTypes, Nbatch)
+    function simResults(NbetaVals::Number, NatcTypes::Number, Nbatch)
         betaVals = zeros(Float32, NbetaVals)
-        atcTypes = fill(:0, NatcTypes)
-        return simResults(betaVals, atcTypes, Nbatch, 0)
+        atcTypes = fill(:a, NatcTypes)
+        return simResults(betaVals, atcTypes, Nbatch)
     end
 
     
@@ -235,7 +234,7 @@ function runBatchSims(betaVals::Vector{Float32},
     
     
     #Allocate the result vectors
-    results = simResults(betaVals, atcTypes, Nbatch, seedVal0)
+    results = simResults(betaVals, atcTypes, Nbatch)
     NbetaVals = length(betaVals)
     NatcTypes = length(atcTypes)
     #These should be references just to make hte code a bit more readable

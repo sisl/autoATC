@@ -29,7 +29,8 @@ if parallel == :remote || parallel == :both
 end
 
 #################################
-@everywhere cd("$(homedir())/autoATC")
+@everywhere workingdir = "$(homedir())/autoATC"
+@everywhere isdirpath(workingdir) ? cd(workingdir) : println(workingdir * " is not a valid path")
 
 #################################
 println("Loading code everywhere")
