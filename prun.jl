@@ -3,9 +3,9 @@ using Dates
 
 tstart_string = strftime("%y_%m_%d-%H_%M_%S",time())
 
-parallel = :both
+parallel = :local #both
 
-ncpu_local = 8 #8 on tula, 8 on cheonan 
+ncpu_local = 16 #8 on tula, 8 on cheonan 
 machines = [("zouhair@cheonan.stanford.edu", 8, "/usr/bin"),]
             #("zouhair@tula.stanford.edu", 8, "/usr/bin")]
 
