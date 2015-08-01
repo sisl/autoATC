@@ -341,7 +341,8 @@ end
 ####################
 #Putting it all together...
 #[0.0f0, 0.001f0, 0.005f0, 0.01f0, 0.05f0]
-function solveCTMDP(β_costs=[0.0f0, 0.001f0, 0.005f0, 0.01f0, 0.05f0], ζ_discount=0.5f0)
+function solveCTMDP(β_costs=[0.0f0, 0.001f0, 0.005f0, 0.01f0, 0.05f0],
+                    ζ_discount=float32(0.5/60.))
 
     amax = maximum([length(pattern.NextStates[s]) for s in keys(pattern.NextStates)]);
     A = (Int8)[0:amax];
@@ -364,7 +365,7 @@ function solveCTMDP(β_costs=[0.0f0, 0.001f0, 0.005f0, 0.01f0, 0.05f0], ζ_disco
     M0 = speye(Float32, g_nNodes)
     for x in 1:g_nNodes
         s = x2s(x)
-        M0[x,x] = 1./(pattern.teaTime[s]/60)
+        M0[x,x] = 1./(pattern.sojurnTime[s])
     end
     
     Isp = speye(Float32, g_nNodes);

@@ -15,7 +15,7 @@ end
 #TODO:
 #Since we are using Monte-Carlo, we might be able to use the history
 #and actually handle non-exponential time distributions?
-function findFirsti(Snow::SType, trantimes::typeof(pattern.teaTime), rngState::AbstractRNG)
+function findFirsti(Snow::SType, trantimes::typeof(pattern.sojurnTime), rngState::AbstractRNG)
     #TODO: See http://www.ee.ryerson.ca/~courses/ee8103/chap6.pdf
     #for potentiall a better way to select the next state without needing the logs? 
     
@@ -32,13 +32,13 @@ function findFirsti(Snow::SType, trantimes::typeof(pattern.teaTime), rngState::A
        end
     end
     
-    return ifirst
+    return (ifirst, tmin)
 end
 
 
 function getNextState!(Snew::SType, Snow::SType, a::typeof(pattern.g_noaction), rngState::AbstractRNG)
     #Only transition the one with the earliest event in the race!
-    ifirst = findFirsti(Snow, pattern.teaTime, rngState)
+    (ifirst, tmin) = findFirsti(Snow, pattern.sojurnTime, rngState)
     
     for i in 1:length(Snew)
         if i == ifirst
@@ -48,7 +48,7 @@ function getNextState!(Snew::SType, Snow::SType, a::typeof(pattern.g_noaction), 
         end
     end
 #     
-    return nothing
+    return tmin
 end
 
 function getReward(S::SType, a::typeof(pattern.g_noaction), pars::MCTS.SPWParams)    

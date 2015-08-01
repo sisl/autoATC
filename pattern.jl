@@ -203,50 +203,52 @@ for x in 1:length(g_allstates)
 end
 const g_nMaxActs = maxNextStates * g_nVehicles + 1
 ###########################################
-#Add transition times for each state in seconds
-#The values in here were extracted from the 
+#Add transition times for each state in minutes
+#The values in here were extracted from the 3D simulation
 ###########################################
 
-teaTime = (Symbol => Float64)[]
+sojurnTime = (Symbol => Float64)[]
 
-teaTime[:T]=58.25
-teaTime[:R]=38.23
-teaTime[:U1]=73.65
-teaTime[:LX1]=34.10
-teaTime[:LD1]=90.47
-teaTime[:LD2]=72.89
-teaTime[:LB1]=33.13
-teaTime[:F1]=59.14
-teaTime[:GO]=29.32
-teaTime[:U2]=44.09
-teaTime[:LX2]=33.07
-teaTime[:LD0]=46.36
-teaTime[:LD3]=45.22
-teaTime[:LB2]=34.38
-teaTime[:F0]=45.86
-teaTime[:LDep]=146.00
-teaTime[:LArr]=250.70
-teaTime[:LArrD1]=100.25
-teaTime[:LArrD2]=38.00
-teaTime[:LArrD3]=79.46
+sojurnTime[:T]=58.25
+sojurnTime[:R]=38.23
+sojurnTime[:U1]=73.65
+sojurnTime[:LX1]=34.10
+sojurnTime[:LD1]=90.47
+sojurnTime[:LD2]=72.89
+sojurnTime[:LB1]=33.13
+sojurnTime[:F1]=59.14
+sojurnTime[:GO]=29.32
+sojurnTime[:U2]=44.09
+sojurnTime[:LX2]=33.07
+sojurnTime[:LD0]=46.36
+sojurnTime[:LD3]=45.22
+sojurnTime[:LB2]=34.38
+sojurnTime[:F0]=45.86
+sojurnTime[:LDep]=146.00
+sojurnTime[:LArr]=250.70
+sojurnTime[:LArrD1]=100.25
+sojurnTime[:LArrD2]=38.00
+sojurnTime[:LArrD3]=79.46
+
+
 
 
 #Grab keys before we start inserting things
-teaKeys = collect(keys(teaTime))
+teaKeys = collect(keys(sojurnTime))
 for s in teaKeys
     if !(s in phaseFreeStates)
-        l = (teaTime[s] / nPhases);
-        #Note that this will also modify teaTime[s]
+        l = (sojurnTime[s] / nPhases);
+        #Note that this will also modify sojurnTime[s]
         for i in 1:nPhases
-            teaTime[appendPhase(s,i)] = l
+            sojurnTime[appendPhase(s,i)] = l
         end
     end
 end
 
 
 # #Temporary hack, set all of them to the same value...
-# for k in keys(teaTime)
-#     teaTime[k] = 0.1;
+# for k in keys(sojurnTime)
+#     sojurnTime[k] = 0.1;
 # end
 
 function symmetrize!(halfDict, symFun)
@@ -262,11 +264,10 @@ function symmetrize!(halfDict, symFun)
       end
     end
 end
-symmetrize!(teaTime, x -> x)
+symmetrize!(sojurnTime, x -> x)
 
 #Make sure we didn't miss anything
-
-assert(length(teaTime) == length(g_allstates))
+assert(length(sojurnTime) == length(g_allstates))
 #############################################
 ## Possible transitions
 #############################################
