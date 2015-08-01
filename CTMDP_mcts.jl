@@ -16,6 +16,9 @@ end
 #Since we are using Monte-Carlo, we might be able to use the history
 #and actually handle non-exponential time distributions?
 function findFirsti(Snow::SType, trantimes::typeof(pattern.teaTime), rngState::AbstractRNG)
+    #TODO: See http://www.ee.ryerson.ca/~courses/ee8103/chap6.pdf
+    #for potentiall a better way to select the next state without needing the logs? 
+    
     #Find which state will transition
     N = length(Snow)
 
@@ -73,7 +76,7 @@ function genMCTSdict(d, ec, n, β, γ, resetDict)
                 rollOutPolicy,
                 getNextState!,
                 getReward,
-                S2CIDX,
+                S2LIDX,
                 mctsRng)
     mcts = MCTS.SPW{MCTS.Action}(pars)
     return mcts

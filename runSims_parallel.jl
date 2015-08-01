@@ -2,8 +2,8 @@ using pattern
 using sim3d
 
 
-const __POLICY__ = :KRON 
-#const __POLICY__ = :MCTS
+#const __POLICY__ = :KRON 
+const __POLICY__ = :MCTS
 
 
 #Begin by silent policy

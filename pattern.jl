@@ -270,8 +270,7 @@ assert(length(teaTime) == length(g_allstates))
 #############################################
 ## Possible transitions
 #############################################
-function getNextPerms(ss::Array{Symbol,1})
-  Nac = length(ss)
+function getNextPerms_MDP(ss::Array{Symbol,1})
   ss_pos = [NextStates[s] for s in ss]
 
   ss_next = typeof(ss)[]
@@ -280,6 +279,21 @@ function getNextPerms(ss::Array{Symbol,1})
   end
 
   return ss_next
+end
+
+
+function getNextPerms_CTMDP(S::Array{Symbol,1})
+    SS_next = typeof(S)[]
+    for idx in 1:length(S)
+      #only change idx
+      for snext in NextStates[S[idx]]
+          Snext = copy(S)
+          Snext[idx] = snext 
+          push!(SS_next, Snext)
+      end
+    end
+    
+    return SS_next
 end
 
 

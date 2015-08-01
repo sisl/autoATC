@@ -110,7 +110,7 @@ function plot3dsim(aircraftList, i, dL=20, dS=20; make3d = false)
     
 end
 
-function animate3dsim(aircraftList; nstart = 0, nend = Inf)
+function animate3dsim(aircraftList; nstart = 1, nend = Inf)
 
     # plot in an external window since it doesn't work yet in IJulia
     pygui(true)
