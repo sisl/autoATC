@@ -17,16 +17,19 @@ typealias Reward Float32
 #TODO: This forces a certain type for state and action ...
 typealias State Array{Symbol,1}
 typealias Action (Int8, Symbol)
+typealias StateKey Int64
 
 type SPWParams{T<:Action}
     terminate::Bool             #Flag to be populated by getReward to indicate we have reached terminal state
     resetDict::Bool             #Whether to reset dictionary
     
+    buildTree::Bool             #Whether to build tree for debugging purposes
+    
     d::Depth                    # search depth
     ec::Float32                 # exploration constant- governs trade-off between exploration and exploitation in MCTS
     n::Int32                    # number of iterations
     β::Float32                  # Alert/Collision ration (should be inside of problem defintion...)
-    γ::Float32                  # Discount factor
+    ζ::Float32                  # Discount rate
     
     Afun!::Function              # set of allowable actions 
     rolloutPolicy::Function     # returns action for rollout policy
@@ -40,16 +43,20 @@ end
 
 #statistics for a given node
 type StateStat
-    n::Array{Float32,1}  #Number of times the state/action pairs were visitied
-    q::Array{Reward,1} #average reward for that state
+    n::Vector{Float32}  #Number of times the state/action pairs were visitied
+    q::Vector{Reward} #average reward for that state
     
-    StateStat(nA) = new(zeros(Float32,nA),zeros(Reward,nA))
+    STree::Vector{Dict{StateKey, Int32}}
+    
+    StateStat(nA, nS) = new(zeros(Float32,nA),zeros(Reward,nA), 
+                        [Dict{Int32, Int32}() for i in 1:nS])
+    
+    StateStat(nA, buildTree::Bool) = StateStat(nA, buildTree ? nA : 0)
 end
 
 
 
 #Using our own hash to avoid weirdness with dictionaries...
-typealias StateKey Int64
 type SPW{T}
     stats::Dict{StateKey,StateStat} #statistics
     pars::SPWParams{T}          #parameters
@@ -87,7 +94,7 @@ function selectAction!(spw::SPW, acts::Vector{Action}, s0::State)
     #This is to avoid the first call to simulate wasting a rollout
     s0Hash = spw.pars.hashState(s0)::StateKey
     if !haskey(spw.stats, s0Hash)
-        spw.stats[s0Hash] = StateStat(nActs)
+        spw.stats[s0Hash] = StateStat(nActs, spw.pars.buildTree)
     end
 
 
@@ -142,7 +149,7 @@ function simulate!(spw::SPW, acts::Vector{Action}, s::State, sp::State, d::Depth
     skey = spw.pars.hashState(s)::StateKey
     if !haskey(spw.stats,skey)
         #Add a new node with the state statistics
-        spw.stats[skey] = StateStat(nActs)
+        spw.stats[skey] = StateStat(nActs, spw.pars.buildTree)
         #perform one rollout and return
         return rollout!(spw,s,sp,d)::Reward
     else # choose an action using UCT criterion
@@ -171,15 +178,24 @@ function simulate!(spw::SPW, acts::Vector{Action}, s::State, sp::State, d::Depth
         end
         a  = acts[i]
         
-        #Randomly select the next state based on the action used
-        spw.pars.getNextState!(sp, s, a,spw.pars.rng)
-        #println(tabs, "(",d,")", "Next  s=",s, " -> sp =",sp)
         #Estimate the reward
         q = spw.pars.getReward(s,a, spw.pars)::Reward 
+                
+        #Randomly select the next state based on the action used
+        t_sojurn = spw.pars.getNextState!(sp, s, a,spw.pars.rng)
+
+        if(spw.pars.buildTree)
+            sp_key = spw.pars.hashState(sp)
+            cS.STree[i][sp_key] = 1 + get(cS.STree[i], sp_key, 0)
+        end
+                
+        #println(tabs, "(",d,")", "Next  s=",s, " -> sp =",sp)
+
         if !spw.pars.terminate
             #Note that a call to simulate! will change s and sp, but we 
             #don't care at this point since we no longer need their values!
-            q += spw.pars.γ*simulate!(spw,acts, sp,s,int16(d-1)) #Note that s is now just a temp storage variable
+            #(s will be used as storage variable for s' in the recursive call)
+            q += exp(-spw.pars.ζ*t_sojurn)*simulate!(spw,acts, sp,s,int16(d-1))
         end
         #println(tabs, "(",d,")", "Exit  s=",s, " -> sp =",sp)
 
@@ -208,9 +224,9 @@ function rollout!(spw::SPW,s::State,sp::State,d::Depth)
         
         R = spw.pars.getReward(s,a, spw.pars)::Reward
         if !spw.pars.terminate
-            spw.pars.getNextState!(sp,s,a,spw.pars.rng)
+            t_sojurn = spw.pars.getNextState!(sp,s,a,spw.pars.rng)
             #println(tabs, "(",d,")", "RolloutNext  s=",s, " -> sp =",sp)
-            R += spw.pars.γ*rollout!(spw,sp,s,int16(d-1))::Reward
+            R += exp(-spw.pars.ζ*t_sojurn)*rollout!(spw,sp,s,int16(d-1))::Reward
         end
         
         #println(tabs, "(",d,")", "RolloutExit  s=",s, " -> sp =",sp)

@@ -15,20 +15,20 @@ end
 #TODO:
 #Since we are using Monte-Carlo, we might be able to use the history
 #and actually handle non-exponential time distributions?
-function findFirsti(Snow::SType, trantimes::typeof(pattern.sojurnTime), rngState::AbstractRNG)
+function findFirsti(Snow::SType, sojurnTimes::typeof(pattern.sojurnTime), rngState::AbstractRNG)
     #TODO: See http://www.ee.ryerson.ca/~courses/ee8103/chap6.pdf
     #for potentiall a better way to select the next state without needing the logs? 
     
     #Find which state will transition
     N = length(Snow)
 
-    tmin = Inf
+    tmin = Inf32
     ifirst = 1
     for i in 1:N
-       t = -trantimes[Snow[i]] * log(1-rand(rngState))
+       t = -sojurnTimes[Snow[i]] * log(1-float32(rand(rngState)))
        if t < tmin
          ifirst = i
-         tmin = t
+         tmin = t::Float32
        end
     end
     
@@ -38,7 +38,17 @@ end
 
 function getNextState!(Snew::SType, Snow::SType, a::typeof(pattern.g_noaction), rngState::AbstractRNG)
     #Only transition the one with the earliest event in the race!
-    (ifirst, tmin) = findFirsti(Snow, pattern.sojurnTime, rngState)
+    
+    
+    ifirst = 0;
+    t_sojurn = 0f0;
+    
+    if isNullAct(a)
+        (ifirst, t_sojurn) = findFirsti(Snow, pattern.sojurnTime, rngState)
+    else
+        ifirst = a[1];
+        t_sojurn = pattern.sojurnTime[Snow[ifirst]]
+    end
     
     for i in 1:length(Snew)
         if i == ifirst
@@ -48,7 +58,7 @@ function getNextState!(Snew::SType, Snow::SType, a::typeof(pattern.g_noaction), 
         end
     end
 #     
-    return tmin
+    return t_sojurn
 end
 
 function getReward(S::SType, a::typeof(pattern.g_noaction), pars::MCTS.SPWParams)    
@@ -71,7 +81,11 @@ assert (SType == MCTS.State)
 
 function genMCTSdict(d, ec, n, β, γ, resetDict)
     terminate=false#doesnt matter, getReward will update this at each call
-    pars = MCTS.SPWParams{MCTS.Action}(terminate, resetDict, d,ec,n,β,γ, 
+    
+    buildTree=false
+    pars = MCTS.SPWParams{MCTS.Action}(
+                terminate, resetDict, buildTree,    
+                d,ec,n,β,γ, 
                 Afun!,
                 rollOutPolicy,
                 getNextState!,
@@ -89,11 +103,11 @@ d = int16(20*pattern.nPhases)
 ec = abs(RewardFun.collisionCost)*5
 n = int32(2000)
 β = 0.0f0
-γ = 0.95 ^ (1/pattern.nPhases)
+ζ = float32(0.5/60.)
 
 resetDict = true #reset dictionary every cycle
 
-mcts = genMCTSdict(d, ec, n, β, γ, resetDict)
+mcts = genMCTSdict(d, ec, n, β, ζ, resetDict)
 
 actWorkspace = Array(extActType, pattern.g_nMaxActs)
 actWorkspace[1] = copy(pattern.g_noaction)

@@ -207,7 +207,7 @@ const g_nMaxActs = maxNextStates * g_nVehicles + 1
 #The values in here were extracted from the 3D simulation
 ###########################################
 
-sojurnTime = (Symbol => Float64)[]
+sojurnTime = (Symbol => Float32)[]
 
 sojurnTime[:T]=58.25
 sojurnTime[:R]=38.23
