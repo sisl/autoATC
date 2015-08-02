@@ -59,7 +59,7 @@ function runPars()
         append!(pars, ["policy","MCTS", 
                 "d", mcts.pars.d, "n", mcts.pars.n,
                 "ec", mcts.pars.ec,
-                "γ", mcts.pars.γ, "resetDict", mcts.pars.resetDict])
+                "ζ", mcts.pars.ζ, "resetDict", mcts.pars.resetDict])
     elseif __POLICY__ == :KRON
         append!(pars, ["policy","KRON"]) 
     end
