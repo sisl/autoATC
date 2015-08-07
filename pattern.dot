@@ -1,61 +1,60 @@
 digraph G {
 rankdir=LR
-
 splines=true
 node [shape = box]
 
-F1[label="F1", pin=true, pos="-2.00, 0.00!"]
-U2[label="U2", pin=true, pos="4.00, 0.00!"]
-LD3[label="LD3", pin=true, pos="-4.00, 2.00!"]
-F0[label="F0", pin=true, pos="-4.00, 0.00!"]
-LD1[label="LD1", pin=true, pos="2.00, 2.00!"]
-LX2[label="LX2", pin=true, pos="5.00, 1.00!"]
-T[label="Taxi (T)", pin=true, pos="0.00, -1.00!", shape = polygon, width = 1.5]
-RB2[label="RB2", pin=true, pos="-5.00, -1.00!"]
-LX1[label="LX1", pin=true, pos="3.00, 1.00!"]
-RX2[label="RX2", pin=true, pos="5.00, -1.00!"]
-RD2[label="RD2", pin=true, pos="-2.00, -2.00!"]
-GO[label="GO", pin=true, pos="0.00, 1.00!"]
-RArr[label="RArr", pin=true, pos="-2.00, -4.00!"]
-LD2[label="LD2", pin=true, pos="-2.00, 2.00!"]
-LArr[label="LArr", pin=true, pos="-2.00, 4.00!"]
-RD1[label="RD1", pin=true, pos="2.00, -2.00!"]
-RD3[label="RD3", pin=true, pos="-4.00, -2.00!"]
-RD0[label="RD0", pin=true, pos="4.00, -2.00!"]
-LB1[label="LB1", pin=true, pos="-3.00, 1.00!"]
-U1[label="U1", pin=true, pos="2.00, 0.00!"]
-LDep[label="LDep", pin=true, pos="2.00, 4.00!", shape = polygon]
-R[label="Runway (R)", pin=true, pos="0.00, 0.00!", width=2]
-RX1[label="RX1", pin=true, pos="3.00, -1.00!"]
-LD0[label="LD0", pin=true, pos="4.00, 2.00!"]
-LB2[label="LB2", pin=true, pos="-5.00, 1.00!"]
-RB1[label="RB1", pin=true, pos="-3.00, -1.00!"]
-RDep[label="RDep", pin=true, pos="2.00, -4.00!", shape = polygon]
+F1[label="F1(8)", pos="-2.00, 0.00", pin=true, width=2]
+U2[label="U2(14)", pos="4.00, 0.00", pin=true, width=2]
+F0[label="F0(19)", pos="-4.00, 0.00", pin=true, width=2]
+LD3[label="LD3(17)", pos="-4.00, 2.00", pin=true, width=2]
+LD1[label="LD1(5)", pos="2.00, 2.00", pin=true, width=2]
+LX2[label="LX2(15)", pos="5.00, 1.00", pin=true, width=2]
+T[label="T(1)", pos="0.00, -1.00", pin=true, width=2]
+RB2[label="RB2(23)", pos="-5.00, -1.00", pin=true, width=2]
+LX1[label="LX1(4)", pos="3.00, 1.00", pin=true, width=2]
+RX2[label="RX2(20)", pos="5.00, -1.00", pin=true, width=2]
+GO[label="GO(13)", pos="0.00, 1.00", pin=true, width=2]
+RD2[label="RD2(11)", pos="-2.00, -2.00", pin=true, width=2]
+RArr[label="RArr(30)", pos="-2.00, -4.00", pin=true, width=2]
+LD2[label="LD2(6)", pos="-2.00, 2.00", pin=true, width=2]
+LArr[label="LArr(25)", pos="-2.00, 4.00", pin=true, width=2]
+RD1[label="RD1(10)", pos="2.00, -2.00", pin=true, width=2]
+RD3[label="RD3(22)", pos="-4.00, -2.00", pin=true, width=2]
+RD0[label="RD0(21)", pos="4.00, -2.00", pin=true, width=2]
+LB1[label="LB1(7)", pos="-3.00, 1.00", pin=true, width=2]
+U1[label="U1(3)", pos="2.00, 0.00", pin=true, width=2]
+LDep[label="LDep(24)", pos="2.00, 4.00", pin=true, width=2]
+R[label="R(2)", pos="0.00, 0.00", pin=true, width=2]
+RX1[label="RX1(9)", pos="3.00, -1.00", pin=true, width=2]
+LD0[label="LD0(16)", pos="4.00, 2.00", pin=true, width=2]
+LB2[label="LB2(18)", pos="-5.00, 1.00", pin=true, width=2]
+RB1[label="RB1(12)", pos="-3.00, -1.00", pin=true, width=2]
+RDep[label="RDep(29)", pos="2.00, -4.00", pin=true, width=2]
 F1 -> R
 F1 -> GO
 U2 -> LX2
 U2 -> RX2
 U2 -> LDep
 U2 -> RDep
-LD3 -> LB2
 F0 -> F1
+LD3 -> LB2
 LD1 -> LD2
 LX2 -> LD0
 T -> R
 RB2 -> F0
 LX1 -> LD1
 RX2 -> RD0
+GO -> U1
 RD2 -> RB1
 RD2 -> RD3
-GO -> U1
-RArr -> RD1
-RArr -> RD2
-RArr -> RD3
+RArr -> RArrD1
+RArr -> RArrD2
+RArr -> RArrD3
 LD2 -> LB1
 LD2 -> LD3
-LArr -> LD1
-LArr -> LD2
-LArr -> LD3
+LArr -> LArrD1
+LArr -> LArrD2
+LArr -> LArrD3
 RD1 -> RD2
 RD3 -> RB2
 RD0 -> RD1

@@ -316,18 +316,6 @@ xy[:LArr] = [-dx, 2*dy]
 
 symmetrize!(xy, x -> [x[1], -x[2]])
 
-##
-#############################################
-##Printing to do file for vizualization
-#############################################
-#for f in keys(NextStates)
-#    @printf("%s[label=\"%s(%i)\", pos=\"%.2f, %.2f\"]\n", f, f, sn[f], xy[f][1], xy[f][2])
-#end
-#for f in keys(NextStates)
-#    for t in NextStates[f]
-#        @printf("%s -> %s\n", f, t)
-#    end
-#end
 
 
 #############################################
