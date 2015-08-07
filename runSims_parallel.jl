@@ -3,8 +3,8 @@ using sim3d
 
 
 #const __POLICY__ = :KRON 
-const __POLICY__ = :MCTS
-
+#const __POLICY__ = :MCTS
+const __POLICY__ = :SILENT
 
 #Begin by silent policy
 loadPolicy = beta -> (S::SType -> pattern.g_noaction)
@@ -14,8 +14,10 @@ if __POLICY__ == :MCTS
 elseif __POLICY__ == :KRON
     using CTMDP_kron
     loadPolicy = beta -> loadCTMDPpolicy(1.0, beta)
-else
+elseif __POLICY__ == :SILENT
     println("Using silent policy!")
+else
+    error("Unknown policy ", __POLICY__)
 end
 
 
@@ -23,12 +25,14 @@ function runBatchSimsParallel(seedVal::Int64)
     
     betaVals = [0.0f0, 0.001f0, 0.005f0, 0.01f0, 0.05f0]
     Nbatch = 10 #10?
-    tBatchHours = 20.
+    tBatchHours = 24.
 
     if __POLICY__ == :MCTS
        betaVals = [0.0f0] # , 0.003f0]
        Nbatch = 1 #10?
-       tBatchHours = 20.
+       tBatchHours = 24.
+    elseif __POLICY__ == :SILENT
+       betaVals = [0.0f0] # , 0.003f0]
     end
 
     return runBatchSims(betaVals, tBatchHours, Nbatch,
@@ -53,15 +57,13 @@ end
 
 function runPars() 
 
-    pars = ["α", pattern.α, "nPhases", pattern.nPhases]
+    pars = ["α", pattern.α, "nPhases", pattern.nPhases, "policy", string(__POLICY__)]
     
     if __POLICY__ == :MCTS 
-        append!(pars, ["policy","MCTS", 
+        append!(pars, [
                 "d", mcts.pars.d, "n", mcts.pars.n,
                 "ec", mcts.pars.ec,
                 "ζ", mcts.pars.ζ, "resetDict", mcts.pars.resetDict])
-    elseif __POLICY__ == :KRON
-        append!(pars, ["policy","KRON"]) 
     end
    return pars                 
 end
