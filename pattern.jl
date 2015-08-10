@@ -303,16 +303,21 @@ end
 #############################################
 dx = 2.; dy = 2.;
 xy = Dict([:T, :R, :U1, :LX1, :LD1, :LD2, :LB1, :F1],
-          {[0,-1] , [0, 0], [dx, 0], [1.5*dx, dy/2], [dx,dy], [-dx, dy], [-1.5*dx, dy/2], [-dx, 0]});
+          {[0,-1] , [0, 0], [dx, 0], [1.25*dx, dy/2], [dx,dy], [-dx, dy], [-1.25*dx, dy/2], [-dx, 0]});
 xy[:F0]  = [-2*dx, 0];
 xy[:GO]  = [0, dy/2];
 xy[:U2]  =  [2*dx, 0];
-xy[:LX2] = [2.5*dx, dy/2];
+xy[:LX2] = [2.25*dx, dy/2];
 xy[:LD0] = [2*dx, dy];
 xy[:LD3] = [-2*dx, dy];
-xy[:LB2] = [-2.5*dx, dy/2];
-xy[:LDep] = [dx, 2*dy]
-xy[:LArr] = [-dx, 2*dy]
+xy[:LB2] = [-2.25*dx, dy/2];
+
+xy[:LDep] = [3*dx, 2.25*dy]
+xy[:LArr] = [-0*dx, 2*dy]
+
+xy[:LArrD1] = [-0*dx+1, 2*dy-1]
+xy[:LArrD2] = [-0*dx-1, 2*dy-1]
+xy[:LArrD3] = [-0*dx-3, 2*dy-1]
 
 symmetrize!(xy, x -> [x[1], -x[2]])
 

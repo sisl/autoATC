@@ -1,5 +1,6 @@
 using airplaneType
 using posType
+using auxFuns
 #############################################
 ##Printing to dot file for vizualization
 #############################################
@@ -97,4 +98,55 @@ footer = """
     run(`pdflatex -halt-on-error -output-directory patternImg/ patternImg/patternImg.tex`)
 end
 
-genPatternDot(airplaneType.posNE)
+#genPatternDot(airplaneType.posNE)
+
+
+
+#############################################
+##Printing to do file for vizualization
+#############################################
+function genPatternDotSimple(xy)
+    fout = open("pattern.dot","w");
+header="""
+digraph G {
+rankdir=LR
+
+splines=true
+node [shape = box]
+
+"""
+    write(fout, header)
+    for f in keys(xy)
+        sString = isin(f, pattern.sSafe) ? ", shape = doubleoctagon" : ""
+        
+        label = string(f)
+        if f == :R
+            label = "Runway (R)"
+            sString *= ", width = 2"
+        elseif f == :T
+            label = "Taxi (T)"
+            sString *= ", width = 1.5"
+        end
+        
+    
+        @printf(fout, "%s[label=\"%s\", pin=true, pos=\"%.2f, %.2f!\" %s]\n", f, label, xy[f][1], xy[f][2], sString)
+    end
+    
+    for f in keys(xy)
+        for t in pattern.NextStates[f]
+            sString = ""
+            ts = pattern.phaseFree(t)
+            if f == :U2 && isin(ts, [:LDep, :RDep])
+                sString = "[tailport=\"e\"]"
+            end
+            
+            @printf(fout, "%s -> %s %s\n", f, ts, sString)
+        end
+    end
+    
+footer = "}"    
+    write(fout, footer)
+    close(fout)
+end
+genPatternDotSimple(pattern.xy)
+run(`dot -Kfdp pattern.dot -Tpdf -o pattern.pdf`)
