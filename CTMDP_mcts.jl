@@ -79,13 +79,13 @@ Afun! = pattern.validActions!
 assert (typeof(pattern.g_noaction) == MCTS.Action)
 assert (SType == MCTS.State)
 
-function genMCTSdict(d, ec, n, β, γ, resetDict)
+function genMCTSdict(d, ec, n, β, ζ, resetDict)
     terminate=false#doesnt matter, getReward will update this at each call
     
     buildTree=false
     pars = MCTS.SPWParams{MCTS.Action}(
                 terminate, resetDict, buildTree,    
-                d,ec,n,β,γ, 
+                d,ec,n,β,ζ, 
                 Afun!,
                 rollOutPolicy,
                 getNextState!,

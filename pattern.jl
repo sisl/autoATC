@@ -206,31 +206,13 @@ const g_nMaxActs = maxNextStates * g_nVehicles + 1
 #Add transition times for each state in minutes
 #The values in here were extracted from the 3D simulation
 ###########################################
+type cdfTime
+    probs::Vector{Float32}
+    times::Vector{Float32}
+end
 
-sojurnTime = (Symbol => Float32)[]
-
-sojurnTime[:T]=58.25
-sojurnTime[:R]=38.23
-sojurnTime[:U1]=73.65
-sojurnTime[:LX1]=34.10
-sojurnTime[:LD1]=90.47
-sojurnTime[:LD2]=72.89
-sojurnTime[:LB1]=33.13
-sojurnTime[:F1]=59.14
-sojurnTime[:GO]=29.32
-sojurnTime[:U2]=44.09
-sojurnTime[:LX2]=33.07
-sojurnTime[:LD0]=46.36
-sojurnTime[:LD3]=45.22
-sojurnTime[:LB2]=34.38
-sojurnTime[:F0]=45.86
-sojurnTime[:LDep]=146.00
-sojurnTime[:LArr]=250.70
-sojurnTime[:LArrD1]=100.25
-sojurnTime[:LArrD2]=38.00
-sojurnTime[:LArrD3]=79.46
-
-
+include("patternTimes.jl")
+assert(length(sojurnCDF) == g_nRawStates)
 
 
 #Grab keys before we start inserting things
@@ -244,6 +226,7 @@ for s in teaKeys
         end
     end
 end
+
 
 
 # #Temporary hack, set all of them to the same value...
