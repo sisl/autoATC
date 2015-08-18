@@ -20,7 +20,12 @@ function runAutoATC(acList::Vector{airplane}, policyFun)
 #################################################
   S = Symbol[pattern.appendPhase(ac.navDest[1],ac.navPhase) for ac in acList]
   E = Float32[ac.legTime for ac in acList]
-  return policyFun(S, E)
+  
+  readyForATC = [ac.readyForATC for ac in acList]
+#   println("Running policy ", S, " ", E)
+  act =  policyFun(S, E, readyForATC )
+#   println("\t\t ", act, " ", readyForATC)
+  return act
 end
 
 

@@ -64,7 +64,7 @@ function findFirsti(STnow::StateEvent, sojurnCDF::typeof(pattern.sojurnCDF), rng
     end
     
     #round to 5 seconds ...
-    tmin = round(tmin/5)*5
+    tmin = round(tmin/2.5f0)*2.5f0
     
     return (ifirst, tmin)
 end
@@ -134,12 +134,35 @@ function getReward(S_T::StateEvent, a::typeof(pattern.g_noaction), pars::MCTS_GS
     return R
 end
 
-function Afun!(acts::Vector{MCTS_GSMDP.Action}, S_T::StateEvent)
+function Afun!(acts::Vector{MCTS_GSMDP.Action}, S_T::MCTS_GSMDP.StateEvent, readyForAct::Vector{Bool})
 
     nActs = pattern.validActions!(acts, S_T[1])
     #restrict to null act if action has not yet been executed!
     if !pattern.isNullAct(S_T[3])
         nActs = 1
+    end
+    nActs_orig = nActs
+    
+    for i in 1:length(readyForAct)
+        if !readyForAct[i]
+            for j in 2:nActs_orig
+                if acts[j][1] == i
+                    acts[j] = acts[1]
+                    nActs -= 1
+                end
+            end
+        end
+    end
+    
+    n0 = 2
+    for ia in 2:nActs
+        for j in n0:nActs_orig
+            if !pattern.isNullAct(acts[j])
+                acts[ia] = acts[j]
+                n0 = j+1
+                break
+            end
+        end
     end
     
     return nActs
@@ -185,8 +208,8 @@ mcts = genMCTSdict(d, ec, n, β, ζ, w, resetDict)
 actWorkspace = Array(extActType, pattern.g_nMaxActs)
 actWorkspace[1] = copy(pattern.g_noaction)
 
-function mctsPolicy_gsmdp(S::SType, E::Vector{Float32})
-    return MCTS_GSMDP.selectAction!(mcts, actWorkspace, (S,E,pattern.g_nullAct))
+function mctsPolicy_gsmdp(S::SType, E::Vector{Float32}, readyForAct::Vector{Bool})
+    return MCTS_GSMDP.selectAction!(mcts, actWorkspace, (S,E,pattern.g_nullAct), readyForAct)
 end
 
 function loadMCTSPolicy_gsmdp(β::Float32)

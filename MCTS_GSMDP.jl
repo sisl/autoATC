@@ -73,9 +73,9 @@ end
 #the parameters for the SPW structure which contains the parameters
 #and the statistics for the tree
 # This function calls simulate and chooses the approximate best action from the reward approximations 
-function selectAction!(spw::SPW, acts::Vector{Action}, s0t0a0::StateEvent)
+function selectAction!(spw::SPW, acts::Vector{Action}, s0t0a0::StateEvent, readyForAct::Vector{Bool})
        
-    nActs = spw.pars.Afun!(acts, s0t0a0)
+    nActs = spw.pars.Afun!(acts, s0t0a0, readyForAct)
     
     #If there's only one action to be taken, no point in wasting time...
     if(nActs == 1)
@@ -103,14 +103,14 @@ function selectAction!(spw::SPW, acts::Vector{Action}, s0t0a0::StateEvent)
 
     
     for i = 1:spw.pars.n 
-        simulate!(spw, acts, s0t0a0 , spw.pars.d)
+        simulate!(spw, acts, s0t0a0 , spw.pars.d, readyForAct)
     end
 
     #get the list of allowable actions for this state
     #We need to do this since simulate! will work on acts
     #TODO: Find a way to avoid calling this function a 2nd time!
     
-    nActs = spw.pars.Afun!(acts, s0t0a0)     
+    nActs = spw.pars.Afun!(acts, s0t0a0, readyForAct)     
     #Choose action with highest apporoximate q-value 
     return acts[indmax(spw.stats[s0t0a0].q)]::Action 
 end
@@ -119,7 +119,7 @@ end
 
 #Sp is passed-in to avoid to have to allocate memory
 #Note that this function will mangle s
-function simulate!(spw::SPW, acts::Vector{Action}, s_t::StateEvent, d::Depth)
+function simulate!(spw::SPW, acts::Vector{Action}, s_t::StateEvent, d::Depth, readyForAct::Vector{Bool})
     # This function returns the reward for one iteration of MCTS
     
     #We have reached the bottom, bubble up.
@@ -134,7 +134,7 @@ function simulate!(spw::SPW, acts::Vector{Action}, s_t::StateEvent, d::Depth)
     
     #TODO: Make the A(s) function better!
     #Determine actions available for this state
-    nActs = spw.pars.Afun!(acts, s_t)
+    nActs = spw.pars.Afun!(acts, s_t, readyForAct)
     
     #nActs = length(acts)::Int64
     
@@ -210,7 +210,7 @@ function simulate!(spw::SPW, acts::Vector{Action}, s_t::StateEvent, d::Depth)
             #Note that a call to simulate! will change s and sp, but we 
             #don't care at this point since we no longer need their values!
             #(s will be used as storage variable for s' in the recursive call)
-            q += exp(-spw.pars.ζ*t_sojurn)*simulate!(spw, acts, s_t_p ,int16(d-1))::Reward
+            q += exp(-spw.pars.ζ*t_sojurn)*simulate!(spw, acts, s_t_p ,int16(d-1), fill(true, size(s_t_p[1])))::Reward
             q::Reward
         end
         #println(tabs, "(",d,")", "Exit  s=",s, " -> sp =",sp)
