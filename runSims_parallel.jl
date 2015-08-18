@@ -39,7 +39,7 @@ function runBatchSimsParallel(seedVal::Int64)
     elseif __POLICY__ == :GSMDP
        betaVals = [0.0f0] # , 0.003f0]
        Nbatch = 1 #10?
-       tBatchHours = 10.
+       tBatchHours = 24.
     elseif __POLICY__ == :SILENT
        betaVals = [0.0f0] # , 0.003f0]
     end
