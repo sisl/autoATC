@@ -104,7 +104,7 @@ function getReward(S_T::StateEvent, a::typeof(pattern.g_noaction), pars::MCTS_GS
     #assert(pars.β < 0.9f0) #We make the assumption that action cost is small relative to collision cost
     
     S = S_T[1] 
-    R = Reward(S, a, pars.β::Float32, timeHorizon = 10f0, E = S_T[2])
+    R = Reward(S, a, pars.β::Float32, timeHorizon = 5f0, E = S_T[2])
     
     
     pars.terminate = false;
@@ -151,7 +151,7 @@ ec = abs(RewardFun.collisionCost)*5
 n = int32(2000)
 β = 0.0f0
 ζ = float32(0.5/60.)
-w = 50
+w = 100
 
 
 resetDict = true #reset dictionary every cycle
