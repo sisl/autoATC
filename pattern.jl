@@ -428,9 +428,9 @@ function extAct2compAct(act::typeof(g_noaction), S)
   cAct = copy(g_nullAct)
   if act != g_noaction
     sidx = act[1]
-    cAct[1] = sidx
     for (cidx, s) in enumerate(NextStates[S[sidx]])
       if s == act[2]
+        cAct[1] = sidx
         cAct[2] = cidx
       end
     end

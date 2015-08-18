@@ -67,26 +67,25 @@ function findFirsti(STnow::StateEvent, sojurnCDF::typeof(pattern.sojurnCDF), rng
 end
 
 
-function getNextState!(STnew::StateEvent, STnow::StateEvent, a::typeof(pattern.g_noaction), rngState::AbstractRNG)
+function getNextState!(STnew::StateEvent, STnow::StateEvent, anew::typeof(pattern.g_noaction), rngState::AbstractRNG)
     #Only transition the one with the earliest event in the race!
     
     ifirst = 0;
     t_sojurn = 0f0;
     
-    #TODO: handle time better?
-    if isNullAct(a) || any(Bool[STnow[2][i] > 2*pattern.sojurnTime[STnow[1][i]] for i in 1:length(STnow[1])])
-        (ifirst, t_sojurn) = findFirsti(STnow, pattern.sojurnCDF, rngState)
-    else
-        ifirst = a[1];
-        #use the mean?
-        #t_sojurn = max(pattern.sojurnTime[STnow[1][ifirst]] - STnow[2][ifirst], 0.)
-        t_sojurn = sampleTime(pattern.sojurnCDF[STnow[1][ifirst]], STnow[2][ifirst], float32(rand(rngState))) - STnow[2][ifirst]
-        
+    activeAct = pattern.compAct2extAct(STnow[3], STnow[1])
+    if pattern.isNullAct(activeAct)
+        activeAct = anew
+    elseif !pattern.isNullAct(anew)
+        error("Cannot issue action if the previous action has not been acted upon!")
     end
+
+
+    (ifirst, t_sojurn) = findFirsti(STnow, pattern.sojurnCDF, rngState)
     
     for i in 1:length(STnew[1])
         if i == ifirst
-            STnew[1][ifirst] = randomChoice(STnow[1][ifirst], a[1] == ifirst, a[2], rngState)
+            STnew[1][ifirst] = randomChoice(STnow[1][ifirst], activeAct[1] == ifirst, activeAct[2], rngState)
             STnew[2][ifirst] = 0f0 #reset event counter since this just transitioned!
         else
             #These did not transition
@@ -95,6 +94,18 @@ function getNextState!(STnew::StateEvent, STnow::StateEvent, a::typeof(pattern.g
         end
     end
 
+
+    #Assume action was acted upon
+    STnew[3][1] = 0
+    STnew[3][2] = 0
+    
+    if !pattern.isNullAct(activeAct)
+        if ifirst != activeAct[1]
+            compact = pattern.extAct2compAct(activeAct, STnew[1])
+            STnew[3][1] = compact[1]
+            STnew[3][2] = compact[2]
+        end
+    end
     return t_sojurn
 end
 
@@ -120,10 +131,20 @@ function getReward(S_T::StateEvent, a::typeof(pattern.g_noaction), pars::MCTS_GS
     return R
 end
 
-Afun! = pattern.validActions!
+function Afun!(acts::Vector{MCTS_GSMDP.Action}, S_T::StateEvent)
+
+    nActs = pattern.validActions!(acts, S_T[1])
+    #restrict to null act if action has not yet been executed!
+    if !pattern.isNullAct(S_T[3])
+        nActs = 1
+    end
+    
+    return nActs
+     
+end
 
 assert (typeof(pattern.g_noaction) == MCTS_GSMDP.Action)
-assert ((SType, Vector{Float32}) == MCTS_GSMDP.StateEvent)
+assert ((SType, Vector{Float32}, typeof(pattern.g_nullAct)) == MCTS_GSMDP.StateEvent)
 assert (SType == MCTS_GSMDP.State)
 
 function genMCTSdict(d, ec, n, β, ζ, w, resetDict)
@@ -162,7 +183,7 @@ actWorkspace = Array(extActType, pattern.g_nMaxActs)
 actWorkspace[1] = copy(pattern.g_noaction)
 
 function mctsPolicy_gsmdp(S::SType, E::Vector{Float32})
-    return MCTS_GSMDP.selectAction!(mcts, actWorkspace, S, E)
+    return MCTS_GSMDP.selectAction!(mcts, actWorkspace, (S,E,pattern.g_nullAct))
 end
 
 function loadMCTSPolicy_gsmdp(β::Float32)

@@ -13,8 +13,9 @@ typealias Reward Float32
 typealias State       Vector{Symbol}
 typealias EventLength Vector{Float32}
 typealias Action (Int8, Symbol)
-typealias StateKey (Vector{Symbol}, Vector{Float32})
+typealias StateKey (Vector{Symbol}, Vector{Float32}, Vector{Int8})
 typealias StateEvent StateKey
+
 
 type SPWParams{T<:Action}
     terminate::Bool             #Flag to be populated by getReward to indicate we have reached terminal state
@@ -46,12 +47,14 @@ type StateStat
     
     t_sojurn::Array{Float32,  2}
     children::Array{StateKey, 2}
+    childrenCnt::Array{Float32, 2}
     
     StateStat(nA,w) = new(
                             zeros(Float32,nA),
                             zeros(Reward,nA),
-                            zeros(Float32, nA, w),
-                            Array(StateKey, nA, w))
+                            zeros(Float32,  nA, w),
+                            Array(StateKey, nA, w),
+                            zeros(Float32,  nA, w))
 end 
 
 
@@ -70,9 +73,9 @@ end
 #the parameters for the SPW structure which contains the parameters
 #and the statistics for the tree
 # This function calls simulate and chooses the approximate best action from the reward approximations 
-function selectAction!(spw::SPW, acts::Vector{Action}, s0::State, t0::EventLength)
+function selectAction!(spw::SPW, acts::Vector{Action}, s0t0a0::StateEvent)
        
-    nActs = spw.pars.Afun!(acts, s0)
+    nActs = spw.pars.Afun!(acts, s0t0a0)
     
     #If there's only one action to be taken, no point in wasting time...
     if(nActs == 1)
@@ -92,25 +95,24 @@ function selectAction!(spw::SPW, acts::Vector{Action}, s0::State, t0::EventLengt
     end    
     
     #This is to avoid the first call to simulate wasting a rollout
-    s0t0Key = (s0, t0)
-    if !haskey(spw.stats, s0t0Key)
-        spw.stats[s0t0Key] = StateStat(nActs, spw.pars.w)
+    if !haskey(spw.stats, s0t0a0)
+        spw.stats[s0t0a0] = StateStat(nActs, spw.pars.w)
     end
 
 
 
     
     for i = 1:spw.pars.n 
-        simulate!(spw, acts, s0t0Key , spw.pars.d)
+        simulate!(spw, acts, s0t0a0 , spw.pars.d)
     end
 
     #get the list of allowable actions for this state
     #We need to do this since simulate! will work on acts
     #TODO: Find a way to avoid calling this function a 2nd time!
     
-    nActs = spw.pars.Afun!(acts, s0)     
+    nActs = spw.pars.Afun!(acts, s0t0a0)     
     #Choose action with highest apporoximate q-value 
-    return acts[indmax(spw.stats[s0t0Key].q)]::Action 
+    return acts[indmax(spw.stats[s0t0a0].q)]::Action 
 end
 
 
@@ -132,7 +134,8 @@ function simulate!(spw::SPW, acts::Vector{Action}, s_t::StateEvent, d::Depth)
     
     #TODO: Make the A(s) function better!
     #Determine actions available for this state
-    nActs = spw.pars.Afun!(acts, s_t[1])
+    nActs = spw.pars.Afun!(acts, s_t)
+    
     #nActs = length(acts)::Int64
     
     #If this state has no statistics yet (i.e. first visit)
@@ -175,7 +178,8 @@ function simulate!(spw::SPW, acts::Vector{Action}, s_t::StateEvent, d::Depth)
         if isdefined(cS.children, iAct, spw.pars.w)
             sp_idx = int(floor(rand(spw.pars.rng) * spw.pars.w + 1)) #garanteed <= w
             t_sojurn = cS.t_sojurn[iAct, sp_idx]       
-            s_t_p    = cS.children[iAct, sp_idx] #TODO: deepcopy?
+            s_t_p    = deepcopy(cS.children[iAct, sp_idx])
+            cS.childrenCnt[iAct, sp_idx] += 1
         else
             s_t_p = deepcopy(s_t)
             t_sojurn = spw.pars.getNextState!(s_t_p, s_t, a,spw.pars.rng)
@@ -183,6 +187,7 @@ function simulate!(spw::SPW, acts::Vector{Action}, s_t::StateEvent, d::Depth)
                 if !isdefined(cS.children, iAct, w_i) #at least one (spw.pars.w) will not be dined!
                     cS.t_sojurn[iAct, w_i] = t_sojurn
                     cS.children[iAct, w_i] = s_t_p
+                    cS.childrenCnt[iAct, w_i] += 1
                     break
                 end
             end        
@@ -226,7 +231,6 @@ function rollout!(spw::SPW, s_t::StateEvent, s_t_p::StateEvent, d::Depth)
     if d > 0
         #println(tabs, "(",d,")", "RolloutEnter  s=",s, " -> sp =",sp) 
         a  = spw.pars.rolloutPolicy(s_t,spw.pars.rng)
-        #This runs a roll-out simulation, note the lack of discount factor...
         
         R = spw.pars.getReward(s_t, a, spw.pars)::Reward
         if !spw.pars.terminate
