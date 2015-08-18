@@ -63,6 +63,9 @@ function findFirsti(STnow::StateEvent, sojurnCDF::typeof(pattern.sojurnCDF), rng
        end
     end
     
+    #round to 5 seconds ...
+    tmin = round(tmin/5)*5
+    
     return (ifirst, tmin)
 end
 

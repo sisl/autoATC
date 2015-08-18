@@ -189,6 +189,11 @@ function simulate!(spw::SPW, acts::Vector{Action}, s_t::StateEvent, d::Depth)
                     cS.children[iAct, w_i] = s_t_p
                     cS.childrenCnt[iAct, w_i] += 1
                     break
+                else #check in case we already encountered this!
+                    if cS.children[iAct, w_i] == s_t_p
+                        cS.childrenCnt[iAct, w_i] += 1
+                        break
+                    end
                 end
             end        
         end
