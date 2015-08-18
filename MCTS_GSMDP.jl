@@ -27,7 +27,7 @@ type SPWParams{T<:Action}
     β::Float32                  # Alert/Collision ration (should be inside of problem defintion...)
     ζ::Float32                  # Discount rate
     
-    w::Int32                    # Width for sparse UCT sampling! 
+    w::Int64                    # Width for sparse UCT sampling! 
     
     Afun!::Function             # set of allowable actions 
     rolloutPolicy::Function     # returns action for rollout policy
@@ -132,7 +132,7 @@ function simulate!(spw::SPW, acts::Vector{Action}, s_t::StateEvent, d::Depth)
     
     #TODO: Make the A(s) function better!
     #Determine actions available for this state
-    nActs = spw.pars.Afun!(acts, s)
+    nActs = spw.pars.Afun!(acts, s_t[1])
     #nActs = length(acts)::Int64
     
     #If this state has no statistics yet (i.e. first visit)
@@ -170,11 +170,11 @@ function simulate!(spw::SPW, acts::Vector{Action}, s_t::StateEvent, d::Depth)
         q = spw.pars.getReward(s_t, a, spw.pars)::Reward 
                 
         #Randomly select the next state based on the action used
-        t_sojurn = 0.f;
+        t_sojurn = 0f0;
 
         if isdefined(cS.children, iAct, spw.pars.w)
             sp_idx = int(floor(rand(spw.pars.rng) * spw.pars.w + 1)) #garanteed <= w
-            t_sojurn = cS.t_sojurn[oAct, sp_idx]       
+            t_sojurn = cS.t_sojurn[iAct, sp_idx]       
             s_t_p    = cS.children[iAct, sp_idx] #TODO: deepcopy?
         else
             s_t_p = deepcopy(s_t)
@@ -200,19 +200,20 @@ function simulate!(spw::SPW, acts::Vector{Action}, s_t::StateEvent, d::Depth)
             #Note that a call to simulate! will change s and sp, but we 
             #don't care at this point since we no longer need their values!
             #(s will be used as storage variable for s' in the recursive call)
-            q += exp(-spw.pars.ζ*t_sojurn)*simulate!(spw, acts, s_t_p ,int16(d-1))
+            q += exp(-spw.pars.ζ*t_sojurn)*simulate!(spw, acts, s_t_p ,int16(d-1))::Reward
+            q::Reward
         end
         #println(tabs, "(",d,")", "Exit  s=",s, " -> sp =",sp)
 
         #Update the statistics
-        cS.n[i] += 1.0f0
+        cS.n[iAct] += 1.0f0
  
         #This could maybe take into account the transition probablities?
         #i.e. given that we know P(s' | s, a), use importance weighing?
         #Doh, apparently people thought about this already. See:
         #http://www.ai.rug.nl/~mwiering/Tom_van_der_Kleij_Thesis.pdf
         #Equ 3.2
-        cS.q[i] += (q-cS.q[i])/cS.n[i]
+        cS.q[iAct] += (q-cS.q[iAct])/cS.n[iAct]
         return q::Reward
     end
 end
@@ -221,7 +222,7 @@ function rollout!(spw::SPW, s_t::StateEvent, s_t_p::StateEvent, d::Depth)
     # Runs a rollout simulation using the default policy
 #      tabs = string([" " for i in 1:(2*d)]...)
 
-    R = 0.0f0::Reward
+    R = 0f0::Reward
     if d > 0
         #println(tabs, "(",d,")", "RolloutEnter  s=",s, " -> sp =",sp) 
         a  = spw.pars.rolloutPolicy(s_t,spw.pars.rng)

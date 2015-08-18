@@ -135,6 +135,7 @@ type airplane
 
   #Leg distance
   legDist::Float64
+  legTime::Float64
   navPhase::Int64
   
   #this just keeps track of the history!
@@ -162,12 +163,13 @@ type airplane
     p0.d = (1-frac) * p0.d + frac* p1.d
 
     legDist = distance(p0,p1)
+    legTime = 0.
     new(airspeed, p0, psi, 0, 0, false, false,
         airspeed, pos(0,0,0),
         navDest, destNED,
         :∅,
         #Leg stuff
-        legDist, 1,
+        legDist, legTime, 1,
         #History stuff
         [copy(p0)], [s], [:∅],
         [copy(p1)], [pos()])
@@ -244,7 +246,7 @@ end
 
 
 #################################################
-function navigate!(ac::airplane)
+function navigate!(ac::airplane, simdt::Float64)
 #################################################
   p0 = ac.posNED
   p1 = ac.destNED
@@ -256,7 +258,8 @@ function navigate!(ac::airplane)
   ac.readyToTransition = (d < simPars.transThresh)
   ac.readyForATC = ac.readyToTransition && ac.navDest[2] == "E"
   
-  ac.navPhase = min(max(int(ceil((1 - d/ ac.legDist) * nPhases)), 1) , nPhases)  
+  ac.navPhase  = min(max(int(ceil((1 - d/ ac.legDist) * nPhases)), 1) , nPhases)
+  ac.legTime  +=  simdt
   
   #When tracking the runway, do more of a fake x-track like
   if(ac.navDest[1] == :F1 && ac.navDest[2] == "E" && abs(p0.e) < 2000 )
@@ -345,8 +348,10 @@ function transition!(ac::airplane)
   #to guess what phase the aircraft are in. 
   ac.legDist = distance(ac.destNED, ac.posNED)
 
+  ac.legTime = 0
+
   #TODO: Consider putting navPhase as part of navDest?
-  #also reset the navPhase
+  #also reset the navPhase and legtime
   ac.navPhase = 1 
   
   #Don't waste navigating towards the start point if it's right next
@@ -373,7 +378,7 @@ function flyPattern!(ac::airplane, simdt::Float64, savepath::Bool=true)
 
   #Afterward go and navigate
   #(moving will be done later)
-  navigate!(ac)
+  navigate!(ac, simdt)
   
   move!(ac, simdt, savepath)
 

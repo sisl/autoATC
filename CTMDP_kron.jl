@@ -32,7 +32,7 @@ for i in 1:g_nScomp
     Aopt[i] = copy(g_nullAct)
 end
 
-function ctmdpPolicy(S::SType)
+function ctmdpPolicy(S::SType, E::Vector{Float32})
     X = S2X(S)
     #Get the compact form representation, accounting for permutation
     act = policy_X2a_compact(X, Aopt::Vector{compActType})

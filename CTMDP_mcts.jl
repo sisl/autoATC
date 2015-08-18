@@ -112,12 +112,8 @@ mcts = genMCTSdict(d, ec, n, β, ζ, resetDict)
 actWorkspace = Array(extActType, pattern.g_nMaxActs)
 actWorkspace[1] = copy(pattern.g_noaction)
 
-function mctsPolicy(S::SType)  
+function mctsPolicy(S::SType, E::Vector{Float32})  
     return MCTS.selectAction!(mcts, actWorkspace, S)
-end
-
-function testPolicy(S::SType)
-    return mcts.pars.β 
 end
 
 function loadMCTSPolicy(β::Float32)

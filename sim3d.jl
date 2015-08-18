@@ -19,7 +19,8 @@ const simdt = 0.25
 function runAutoATC(acList::Vector{airplane}, policyFun)
 #################################################
   S = Symbol[pattern.appendPhase(ac.navDest[1],ac.navPhase) for ac in acList]
-  return policyFun(S)
+  E = Float32[ac.legTime for ac in acList]
+  return policyFun(S, E)
 end
 
 

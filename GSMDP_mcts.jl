@@ -4,6 +4,7 @@ using pattern
 using RewardFun
 using MCTS_GSMDP
 
+typealias StateEvent MCTS_GSMDP.StateEvent
 
 if pattern.nPhases != 1
     error("GSMDP implementation is supposed to work with only 1 phase!")
@@ -40,27 +41,27 @@ function sampleTime(cdf::pattern.cdfTime ,tclip::Float32, p::Float32)
     idx_L = searchsortedlast(cdf.probs, p)
     idx_R = min(idx_L+1, N)
 
-    frac = max((p - cdf.probs[idx_L])/(cdf.probs[idx_R] - cdf.probs[idx_L]), 0.)
+    frac = max((p - cdf.probs[idx_L])/(cdf.probs[idx_R] - cdf.probs[idx_L]), 0)
     frac = min(frac, 1.)
 
 #    @show idx_L, cdf.probs[idx_L], idx_R, cdf.probs[idx_R],  frac
     t = cdf.times[idx_L] + frac * (cdf.times[idx_R] - cdf.times[idx_L]) 
 
-    return max(t, tclip)
+    return float32(max(t, tclip))
 end
 
 
-function findFirsti(STnow::StateEvent, sojurnTimes::typeof(pattern.sojurnCDFs), rngState::AbstractRNG)
+function findFirsti(STnow::StateEvent, sojurnCDF::typeof(pattern.sojurnCDF), rngState::AbstractRNG)
     #TODO: See http://www.ee.ryerson.ca/~courses/ee8103/chap6.pdf
     #for potentiall a better way to select the next state without needing the logs? 
     
     #Find which state will transition
-    N = length(Snow)
+    N = length(STnow[1])
 
     tmin = Inf32
     ifirst = 1
     for i in 1:N
-       t = sampleTime(pattern.sojurnCDFs[i], STnow[2][i], float32(rand(rngState)))
+       t = sampleTime(sojurnCDF[STnow[1][i]], STnow[2][i], float32(rand(rngState))) - STnow[2][i]
        if t < tmin
          ifirst = i
          tmin = t::Float32
@@ -72,41 +73,45 @@ end
 
 
 function getNextState!(STnew::StateEvent, STnow::StateEvent, a::typeof(pattern.g_noaction), rngState::AbstractRNG)
-        
     #Only transition the one with the earliest event in the race!
-    
     
     ifirst = 0;
     t_sojurn = 0f0;
     
-    if isNullAct(a)
-        (ifirst, t_sojurn) = findFirsti(STnow, pattern.sojurnCDFs, rngState)
+    #TODO: handle time better?
+    if isNullAct(a) || any(Bool[STnow[2][i] > 2*pattern.sojurnTime[STnow[1][i]] for i in 1:length(STnow[1])])
+        (ifirst, t_sojurn) = findFirsti(STnow, pattern.sojurnCDF, rngState)
     else
         ifirst = a[1];
-        t_sojurn = max(pattern.sojurnTime[STnow[1][ifirst]] - STnow[2][ifirst], 0.)
+        #use the mean?
+        #t_sojurn = max(pattern.sojurnTime[STnow[1][ifirst]] - STnow[2][ifirst], 0.)
+        t_sojurn = sampleTime(pattern.sojurnCDF[STnow[1][ifirst]], STnow[2][ifirst], float32(rand(rngState))) - STnow[2][ifirst]
+        
     end
     
-    for i in 1:length(Snew)
+    for i in 1:length(STnew[1])
         if i == ifirst
             STnew[1][ifirst] = randomChoice(STnow[1][ifirst], a[1] == ifirst, a[2], rngState)
             STnew[2][ifirst] = 0f0 #reset event counter since this just transitioned!
         else
             #These did not transition
             STnew[1][i] = STnow[1][i] 
-            STnew[2][i] += t_sojurn #increment the sojurn time
+            STnew[2][i] = STnow[2][i] + t_sojurn #increment the sojurn time
         end
     end
 
     return t_sojurn
 end
 
-function getReward(S_T::StateEvent, a::typeof(pattern.g_noaction), pars::MCTS.SPWParams)    
+
+function getReward(S_T::StateEvent, a::typeof(pattern.g_noaction), pars::MCTS_GSMDP.SPWParams)    
     #assert(pars.β < 0.9f0) #We make the assumption that action cost is small relative to collision cost
     
     #TODO: account for the time!!
     
     S = S_T[1] 
     R = Reward(S, a, pars.β::Float32)
+    
     
     pars.terminate = false;
     #This is a terminal state...
@@ -118,14 +123,15 @@ end
 
 Afun! = pattern.validActions!
 
-assert (typeof(pattern.g_noaction) == MCTS.Action)
-assert ((SType, Vector{Float32}) == MCTS.State)
+assert (typeof(pattern.g_noaction) == MCTS_GSMDP.Action)
+assert ((SType, Vector{Float32}) == MCTS_GSMDP.StateEvent)
+assert (SType == MCTS_GSMDP.State)
 
 function genMCTSdict(d, ec, n, β, ζ, w, resetDict)
     terminate=false #doesnt matter, getReward will update this at each call
     
     buildTree=false
-    pars = MCTS.SPWParams{MCTS.Action}(
+    pars = MCTS_GSMDP.SPWParams{MCTS_GSMDP.Action}(
                 terminate, resetDict, buildTree,    
                 d,ec,n,β,ζ, w,
                 Afun!,
@@ -134,7 +140,7 @@ function genMCTSdict(d, ec, n, β, ζ, w, resetDict)
                 getReward,
                 S2LIDX, #unused in GSMP implementation
                 mctsRng)
-    mcts = MCTS.SPW{MCTS.Action}(pars)
+    mcts = MCTS_GSMDP.SPW{MCTS_GSMDP.Action}(pars)
     return mcts
 end
 
@@ -146,7 +152,7 @@ ec = abs(RewardFun.collisionCost)*5
 n = int32(2000)
 β = 0.0f0
 ζ = float32(0.5/60.)
-w = 5
+w = 10
 
 
 resetDict = true #reset dictionary every cycle
@@ -160,12 +166,12 @@ function mctsPolicy_gsmdp(S::SType, E::Vector{Float32})
     return MCTS_GSMDP.selectAction!(mcts, actWorkspace, S, E)
 end
 
-function loadMCTSPolicy(β::Float32)
+function loadMCTSPolicy_gsmdp(β::Float32)
     mcts.pars.β = β
     return mctsPolicy_gsmdp
 end
 
-export mcts, mctsPolicy_gsmdp, loadMCTSPolicy
+export mcts, mctsPolicy_gsmdp, loadMCTSPolicy_gsmdp
 
 # const S = [:LD2, :RB1, :R, :U1]
 #  
@@ -177,5 +183,6 @@ export mcts, mctsPolicy_gsmdp, loadMCTSPolicy
 #  
 # @time test(S,1)
 # @time test(S,10)
+
 
 end

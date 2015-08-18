@@ -4,13 +4,18 @@ using sim3d
 
 #const __POLICY__ = :KRON 
 #const __POLICY__ = :MCTS
-const __POLICY__ = :SILENT
+const __POLICY__  = :GSMDP
+#const __POLICY__ = :SILENT
 
 #Begin by silent policy
-loadPolicy = beta -> (S::SType -> pattern.g_noaction)
+loadPolicy = beta -> ((S::SType, E::Vector{Float32}) -> pattern.g_noaction)
+
 if __POLICY__ == :MCTS
     using CTMDP_mcts
     loadPolicy = loadMCTSPolicy
+elseif __POLICY__ == :GSMDP
+    using GSMDP_mcts
+    loadPolicy = loadMCTSPolicy_gsmdp
 elseif __POLICY__ == :KRON
     using CTMDP_kron
     loadPolicy = beta -> loadCTMDPpolicy(1.0, beta)
@@ -31,6 +36,10 @@ function runBatchSimsParallel(seedVal::Int64)
        betaVals = [0.0f0, 0.005f0, 0.01f0] # , 0.003f0]
        Nbatch = 1 #10?
        tBatchHours = 24.
+    elseif __POLICY__ == :GSMDP
+       betaVals = [0.0f0] # , 0.003f0]
+       Nbatch = 1 #10?
+       tBatchHours = 10.
     elseif __POLICY__ == :SILENT
        betaVals = [0.0f0] # , 0.003f0]
     end
