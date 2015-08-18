@@ -28,7 +28,10 @@ const taxiCost = -10.0f0
 
 
 #############################################
-function Reward(SX::Union(XType, SType), a::ActType, β::Float32)
+function Reward(SX::Union(XType, SType), a::ActType, β::Float32; 
+                timeHorizon::Float32 = 1f0, 
+                E::Vector{Float32} = zeros(Float32, pattern.g_nVehicles)
+                )
 #############################################
     R = 0.0f0
 
@@ -38,16 +41,21 @@ function Reward(SX::Union(XType, SType), a::ActType, β::Float32)
     end
     
     #Check for collisions
-    R += NcolNtaxi(SX, collisionCost, taxiCost)
+    R += NcolNtaxi(SX, collisionCost, taxiCost, timeHorizon, E)
     
     return R;
 end
 
 
 ###########################################
-function NcolNtaxi(SX::Union(XType, SType), collisionCost::Float32, taxiCost::Float32)
+function NcolNtaxi(SX::Union(XType, SType), 
+                  collisionCost::Float32, 
+                  taxiCost::Float32,
+                  timeHorizon::Float32,
+                  E::Vector{Float32}
+                  )
 ###########################################
-  Nc = 0
+  Nc = 0f0
   Nt = 0
   for i in 1:length(SX)
     isTaxi = false
@@ -69,7 +77,12 @@ function NcolNtaxi(SX::Union(XType, SType), collisionCost::Float32, taxiCost::Fl
     end
     for j in (i+1):length(SX)
       if SX[j] == SX[i]
-        Nc += 1
+        dt = abs(E[i] - E[j])
+        if dt <= timeHorizon
+            Nc += 1f0
+        else
+            Nc += max(0f0, 1f0 - (dt-timeHorizon)/timeHorizon/3f0)
+        end
       end
     end
   end

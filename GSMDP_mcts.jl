@@ -16,11 +16,6 @@ function rollOutPolicy(ST::StateEvent, rngState::AbstractRNG)
     return pattern.g_noaction #our roll-out policy is the silent policy
 end
 
-#TODO:
-#Since we are using Monte-Carlo, we might be able to use the history
-#and actually handle non-exponential time distributions?
-
-
 
 
 function sampleTime(cdf::pattern.cdfTime ,tclip::Float32, p::Float32)
@@ -104,19 +99,23 @@ function getNextState!(STnew::StateEvent, STnow::StateEvent, a::typeof(pattern.g
 end
 
 
+cnt = 10
 function getReward(S_T::StateEvent, a::typeof(pattern.g_noaction), pars::MCTS_GSMDP.SPWParams)    
     #assert(pars.β < 0.9f0) #We make the assumption that action cost is small relative to collision cost
     
-    #TODO: account for the time!!
-    
     S = S_T[1] 
-    R = Reward(S, a, pars.β::Float32)
+    R = Reward(S, a, pars.β::Float32, timeHorizon = 10f0, E = S_T[2])
     
     
     pars.terminate = false;
     #This is a terminal state...
     if( R <=  RewardFun.collisionCost)
         pars.terminate = true
+#         global cnt
+#         if cnt > 0
+#             println("Terminated @ $S_T")
+#             cnt -= 1
+#         end
     end
     return R
 end
@@ -152,7 +151,7 @@ ec = abs(RewardFun.collisionCost)*5
 n = int32(2000)
 β = 0.0f0
 ζ = float32(0.5/60.)
-w = 10
+w = 50
 
 
 resetDict = true #reset dictionary every cycle
