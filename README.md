@@ -9,7 +9,8 @@ Academic references available in the following two papers:
 
 ### How do I get set up? ###
 
-Install Julia (see http://julialang.org/downloads/) and download packages using Pkg.add(<PackageName>); alternatively, run Julia remotely on JuliaBox (see https://juliabox.org/)
+* Install Julia (see http://julialang.org/downloads/) and download packages using Pkg.add(<PackageName>)
+* Alternatively, run Julia remotely on JuliaBox (see https://juliabox.org/)
 
 The project is organized as follows:
 
