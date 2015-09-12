@@ -5,7 +5,7 @@ This repo contains Julia and Python code used as part of the autonomous air-traf
 Academic references available in the following two papers:
 
 * Z. Mahboubi and M. J. Kochenderfer, “Autonomous Air Traffic Control for Non-Towered Airports,” in Air Traffic Management Research and Development Seminar, 2015. 
-* Z. Mahboubi and M. J. Kochenderfer, “Continuous Time Autonomous Air Traffic Control for Non-Towered Airports,” in IEEE Conference on Decision and Control, Osaka, Japan, 2015. 
+* Z. Mahboubi and M. J. Kochenderfer, “Continuous Time Autonomous Air Traffic Control for Non-Towered Airports,” in IEEE Conference on Decision and Control, 2015. 
 
 ### How do I get set up? ###
 
@@ -20,8 +20,18 @@ The project is organized as follows:
 * MCTS_viz/ : used for visualizing trees resulting from Monte Carlo search
 * modelLearning/ : different attempts at exploring empirical data for model learning (unpublished work)
 
+Additional notes:
+
+The number of phases (nPhases) used in the model for the pattern is defined in model/pattern.jl. Unfortunately, 
+this needs to be modified on a case-by-case as Julia does not make it easy to define parameters in modules
+at runtime. As a workaround, the file patternSweep.sh can be used to run the same script using multiple
+values for nPhases.
+
+The file model/solvers/solveCTMDPs.jl solves the continous-time MDP formulation. It relies on the CTMDP_kronsolver module. 
+
+The file parallelRun.jl (wrapper for runSims_paralle.jl) is used to simulate different policies using processes in parallel.
+Note that depending on policy type, policies might need to be solved ahead of time.
 
 
 ### Who do I talk to? ###
-
-* <zouhair@stanford.edu>
+The code does not come with any support or guarantees. However, feel free to contact the author if you have questions or suggestions.
